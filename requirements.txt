@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+motor
+beanie
+python-jose[cryptography]
+passlib[argon2]
+python-multipart
+pydantic-settings
+email-validator
