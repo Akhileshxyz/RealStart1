@@ -12,12 +12,15 @@ class UserRole(str, Enum):
     BUYER = "BUYER"
     SALES = "SALES"
     MARKETING = "MARKETING"
+    MANAGER = "MANAGER"
+    DEVELOPER = "DEVELOPER"
 
 class User(Document):
     id: UUID = Field(default_factory=uuid4)
     email: Indexed(EmailStr, unique=True)
     hashed_password: str
     full_name: str
+    phone: Optional[str] = None
     role: UserRole = UserRole.BUYER
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
