@@ -4,12 +4,14 @@ from app.core.config import settings
 
 from app.models.user import User
 from app.models.developer import Developer
+from app.models.project import Project
+from app.models.lead import ProjectLead
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
     
     # Initialize Beanie with the User model
-    await init_beanie(database=client[settings.DATABASE_NAME], document_models=[User, Developer])
+    await init_beanie(database=client[settings.DATABASE_NAME], document_models=[User, Developer, Project, ProjectLead])
     
     # For now, just return client to show connection works, though init_beanie is where the magic happens
     return client

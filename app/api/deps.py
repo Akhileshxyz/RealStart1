@@ -47,3 +47,10 @@ async def get_current_active_admin(
             status_code=400, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+async def get_current_user_optional(token: str = Depends(oauth2_scheme)) -> Optional[User]:
+    try:
+        user = await get_current_user(token)
+        return user
+    except HTTPException:
+        return None
