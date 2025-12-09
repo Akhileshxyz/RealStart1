@@ -26,4 +26,4 @@ app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/devel
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to RealStart Auth System"}
+    return {"message": "Welcome to RealStart Auth System"} 
