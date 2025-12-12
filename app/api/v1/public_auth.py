@@ -42,11 +42,13 @@ async def login_access_token(
     OAuth2 compatible token login, get an access token for future requests
     """
     user = await User.find_one({"email": form_data.username})
-    if not user or not security.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
-    
-    if not user.is_active:
-         raise HTTPException(status_code=400, detail="Inactive user")
+
+    # Generic error message to prevent user enumeration
+    if not user or not security.verify_password(form_data.password, user.hashed_password) or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
 
     return {
         "access_token": security.create_access_token(user.id),
