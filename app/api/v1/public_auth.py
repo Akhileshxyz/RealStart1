@@ -63,25 +63,3 @@ async def read_users_me(
     Get current user.
     """
     return current_user
-
-@router.post("/register-developer", response_model=DeveloperResponse)
-async def register_developer_public(developer_in: DeveloperCreate) -> Any:
-    """
-    Register as a developer (Public Portal).
-    Developers need admin verification before being activated.
-    """
-    if developer_in.contact_email:
-        existing = await Developer.find_one({"contact_email": developer_in.contact_email})
-        if existing:
-            raise HTTPException(
-                status_code=400,
-                detail="A developer with this email already exists",
-            )
-
-    developer = Developer(
-        **developer_in.model_dump(),
-        is_verified=False,
-        is_active=False
-    )
-    await developer.insert()
-    return developer
