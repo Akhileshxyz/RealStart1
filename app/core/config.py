@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # CORS
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+
+    # Redis (for rate limiting)
+    REDIS_URL: str = "redis://localhost:6379"
+
+    # Email
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = "noreply@yourdomain.com"
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

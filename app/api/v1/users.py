@@ -3,9 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from app.api import deps
 from app.core import security
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import UserCreateAdmin, UserResponse
 from app.schemas.user import UserUpdate
+import logging
+
+logger = logging.getLogger(__name__)
+security_logger = logging.getLogger("security")
 
 router = APIRouter()
 
@@ -108,6 +112,8 @@ async def delete_user(
 ) -> Any:
     """
     Delete a user.
+    Only SUPER_ADMIN can delete admin users.
+    Users cannot delete themselves.
     """
     user = await User.get(user_id)
     if not user:
@@ -115,7 +121,29 @@ async def delete_user(
             status_code=404,
             detail="User not found",
         )
+
+    # Prevent self-deletion
+    if user.id == current_user.id:
+        security_logger.warning(f"User {current_user.email} attempted to delete their own account")
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete your own account"
+        )
+
+    # Only SUPER_ADMIN can delete other admins
+    if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        if current_user.role != UserRole.SUPER_ADMIN:
+            security_logger.warning(
+                f"User {current_user.email} (role: {current_user.role}) attempted to delete admin user {user.email}"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Only super admins can delete admin users"
+            )
+
     await user.delete()
+    logger.info(f"User {user.email} (ID: {user.id}) deleted by {current_user.email}")
+    security_logger.info(f"User deletion: {user.email} by {current_user.email}")
     return user
 
 @router.patch("/{user_id}/suspend", response_model=UserResponse)
