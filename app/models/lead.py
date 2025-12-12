@@ -16,17 +16,32 @@ class ProjectLead(Document):
     id: UUID = Field(default_factory=uuid4)
     project_id: UUID
     user_id: UUID
-    
+
     status: LeadStatus = LeadStatus.VIEWED
-    
+
     # Tracking view history
     viewed_at_history: List[datetime] = Field(default_factory=list)
     last_viewed_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
+    # Wishlist tracking
+    is_wishlisted: bool = False
+    wishlisted_at: Optional[datetime] = None
+
+    # Legal request tracking
+    is_legal_requested: bool = False
+    legal_requested_at: Optional[datetime] = None
+
+    # Visit tracking
+    visit_booked_at: Optional[datetime] = None
+    visit_status: Optional[str] = None  # "BOOKED", "COMPLETED", "CANCELLED"
+
+    # Anonymous tracking
+    is_anonymous: bool = True
+
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Notes by developer
     developer_notes: Optional[str] = None
 

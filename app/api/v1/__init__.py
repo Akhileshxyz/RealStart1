@@ -8,5 +8,9 @@ __all__ = [
     "public_projects",
     "developer_projects",
     "admin_projects",
-    "developer_leads"
+    "developer_leads",
+    "admin_change_requests",
+    "developer_webhooks",
+    "user_interactions",
+    "user_portal"
 ]
