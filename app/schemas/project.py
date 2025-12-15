@@ -11,6 +11,8 @@ class ProjectBase(BaseModel):
     approval_type: Optional[ProjectAppovalType] = None
     rera_number: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     launch_year: Optional[int] = None
 
 # Creation by Developer (Status not allowed, defaults to PENDING)

@@ -116,15 +116,51 @@ async def list_landmarks(
         landmarks = await Landmark.find_all().to_list()
     return landmarks
 
+import math
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """
+    Haversine formula to calculate distance between two points on Earth.
+    """
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+        return float('inf')
+
+    R = 6371  # Earth radius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) * math.sin(dlat / 2) +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2) * math.sin(dlon / 2))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 @router.get("/public/landmarks/{id}", response_model=LandmarkResponse)
 async def get_landmark(id: str):
     """
-    Get detailed market data for a landmark.
+    Get detailed market data for a landmark, including nearest layouts.
     """
     landmark = await Landmark.get(id)
     if not landmark:
         raise HTTPException(status_code=404, detail="Landmark not found")
-    return landmark
+    
+    # Fetch all projects (In production, use geospatial index query)
+    # For now, fetching all and filtering in python is acceptable for prototype scale
+    projects = await Project.find_all().to_list()
+    
+    nearby = []
+    for proj in projects:
+        dist = calculate_distance(landmark.latitude, landmark.longitude, proj.latitude, proj.longitude)
+        if dist <= 5.0:  # 5 km radius
+            nearby.append((dist, proj))
+            
+    # Sort by distance
+    nearby.sort(key=lambda x: x[0])
+    
+    # Extract projects
+    landmark_response = LandmarkResponse.from_orm(landmark)
+    landmark_response.nearby_projects = [item[1] for item in nearby]
+    
+    return landmark_response
 
 # Admin endpoint to create landmarks (for testing/population)
 @router.post("/admin/landmarks", response_model=LandmarkResponse)

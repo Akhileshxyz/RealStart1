@@ -9,6 +9,35 @@ from app.services.webhook_service import WebhookService
 
 router = APIRouter()
 
+@router.post("/{slug}/view")
+async def log_view(
+    slug: str,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Log a view for a project.
+    """
+    project = await Project.find_one(Project.slug == slug)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    lead = await ProjectLead.find_one(ProjectLead.project_id == project.id, ProjectLead.user_id == current_user.id)
+    if not lead:
+        lead = ProjectLead(project_id=project.id, user_id=current_user.id)
+    
+    # Update view history
+    now = datetime.utcnow()
+    lead.last_viewed_at = now
+    if lead.viewed_at_history is None:
+        lead.viewed_at_history = []
+    lead.viewed_at_history.append(now)
+    
+    # Ensure status is at least VIEWED
+    # (If it was higher like CONTACTED, don't downgrade it, but usually VIEWED is the base)
+    
+    await lead.save()
+    return {"message": "View logged"}
+
 @router.post("/{slug}/wishlist")
 async def toggle_wishlist(
     slug: str,

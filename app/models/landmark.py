@@ -14,8 +14,14 @@ class Landmark(Document):
 
     # Market Data
     avg_price_per_sqft: Optional[float] = None
+    median_price: Optional[float] = None
+    growth_forecast_5yr: Optional[float] = None # Percentage 
     price_trend: Optional[str] = None  # "rising", "stable", "falling"
+    price_trend_3m: Optional[str] = None # e.g. "+5.2%"
+    
     total_projects: Optional[int] = 0
+    active_layouts_count: Optional[int] = 0
+    rera_projects_count: Optional[int] = 0
 
     # Additional metadata
     description: Optional[str] = None
