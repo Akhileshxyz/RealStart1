@@ -1,6 +1,6 @@
 from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import ValidationError
 from app.core import security
@@ -8,10 +8,11 @@ from app.core.config import settings
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenPayload
 
-# Two distinct OAuth2 schemes if needed, or one shared logic
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+# HTTPBearer scheme for Swagger UI
+security_scheme = HTTPBearer()
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> User:
+    token = credentials.credentials
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -48,9 +49,10 @@ async def get_current_active_admin(
         )
     return current_user
 
-async def get_current_user_optional(token: str = Depends(oauth2_scheme)) -> Optional[User]:
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)) -> Optional[User]:
     try:
-        user = await get_current_user(token)
+        token = credentials.credentials
+        user = await get_current_user(credentials)
         return user
     except HTTPException:
         return None

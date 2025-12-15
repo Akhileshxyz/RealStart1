@@ -41,6 +41,8 @@ async def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests
     """
+
+
     user = await User.find_one({"email": form_data.username})
 
     # Generic error message to prevent user enumeration
@@ -63,3 +65,4 @@ async def read_users_me(
     Get current user.
     """
     return current_user
+    

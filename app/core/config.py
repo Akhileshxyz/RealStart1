@@ -41,7 +41,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
 
-settings = Settings()
+from dotenv import find_dotenv
+_env_file = find_dotenv()
+if _env_file:
+    settings = Settings(_env_file=_env_file)
+else:
+    settings = Settings()
