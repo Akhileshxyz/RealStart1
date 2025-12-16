@@ -19,7 +19,8 @@ from app.api.v1 import (
     admin_change_requests,
     developer_webhooks,
     user_interactions,
-    user_portal
+    user_portal,
+    admin_settings
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -56,7 +57,10 @@ tags_metadata = [
     {"name": "🏠 End User Portal", "description": "Buyer features: Landmarks, History, Wishlist, Profile."},
     {"name": "🏢 Public Listings", "description": "Publicly accessible project listings."},
     {"name": "🏗️ Developer Portal", "description": "Project and Lead management for Developers."},
-    {"name": "🛡️ Admin Portal", "description": "Master data and System management."},
+    {"name": "Admin - Projects", "description": "Admin project approval and management."},
+    {"name": "Admin - Developers", "description": "Admin developer account management."},
+    {"name": "Admin - Users", "description": "Admin user account management."},
+    {"name": "⚙️ Settings", "description": "User settings for all user types - Password change and Profile management."},
 ]
 
 app = FastAPI(
@@ -107,10 +111,13 @@ app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/develo
 app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["🏗️ Developer Portal"])
 
 # 5. Admin Portal
-app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["🛡️ Admin Portal"])
-app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/developers", tags=["🛡️ Admin Portal"])
-app.include_router(users.router, prefix=f"{settings.API_V1_STR}/admin/users", tags=["🛡️ Admin Portal"])
-app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/change-requests", tags=["🛡️ Admin Portal"])
+app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
+app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/developers", tags=["Admin - Developers"])
+app.include_router(users.router, prefix=f"{settings.API_V1_STR}/admin/users", tags=["Admin - Users"])
+app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
+
+# 6. Settings (for all user types)
+app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["⚙️ Settings"])
 
 @app.get("/")
 async def root():

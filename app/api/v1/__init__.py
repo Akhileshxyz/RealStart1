@@ -12,5 +12,6 @@ __all__ = [
     "admin_change_requests",
     "developer_webhooks",
     "user_interactions",
-    "user_portal"
+    "user_portal",
+    "admin_settings"
 ]
