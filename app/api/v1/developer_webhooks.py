@@ -5,6 +5,7 @@ from app.api import deps
 from app.models.user import User, UserRole
 from app.models.webhook import WebhookSubscription
 from app.schemas.webhook import WebhookCreate, WebhookResponse
+from app.utils.cache_invalidation import invalidate_webhook_cache
 
 router = APIRouter()
 
@@ -38,6 +39,10 @@ async def create_webhook(
         secret_token=webhook_in.secret_token
     )
     await webhook.insert()
+
+    # Invalidate webhook cache
+    await invalidate_webhook_cache(current_user.id)
+
     return webhook
 
 @router.get("/", response_model=List[WebhookResponse])
@@ -62,4 +67,8 @@ async def delete_webhook(
         raise HTTPException(status_code=403, detail="Not your webhook")
     
     await webhook.delete()
+
+    # Invalidate webhook cache
+    await invalidate_webhook_cache(current_user.id)
+
     return {"message": "Deleted"}

@@ -1,6 +1,6 @@
 from typing import Any, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User
@@ -61,7 +61,7 @@ async def update_developer(
         raise HTTPException(status_code=404, detail="Developer not found")
     
     update_data = developer_in.model_dump(exclude_unset=True)
-    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_at"] = datetime.now(timezone.utc)
     
     await developer.set(update_data)
     return developer

@@ -11,6 +11,8 @@ import logging
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger("security")
 
+from app.utils.cache_invalidation import invalidate_user_cache
+
 router = APIRouter()
 
 @router.get("/", response_model=List[UserResponse])
@@ -86,6 +88,10 @@ async def update_user(
         user.is_active = user_in.is_active
         
     await user.save()
+
+    # Invalidate user cache
+    await invalidate_user_cache(user.id)
+
     return user
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -142,6 +148,10 @@ async def delete_user(
             )
 
     await user.delete()
+
+    # Invalidate user cache
+    await invalidate_user_cache(user.id)
+
     logger.info(f"User {user.email} (ID: {user.id}) deleted by {current_user.email}")
     security_logger.info(f"User deletion: {user.email} by {current_user.email}")
     return user
@@ -163,6 +173,10 @@ async def suspend_user(
         )
     user.is_active = False
     await user.save()
+
+    # Invalidate user cache
+    await invalidate_user_cache(user.id)
+
     return user
 
 @router.patch("/{user_id}/activate", response_model=UserResponse)
@@ -182,4 +196,8 @@ async def activate_user(
         )
     user.is_active = True
     await user.save()
+
+    # Invalidate user cache
+    await invalidate_user_cache(user.id)
+
     return user

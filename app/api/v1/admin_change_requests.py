@@ -1,12 +1,13 @@
 from typing import Any, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.project import Project
 from app.models.change_request import ProjectChangeRequest, RequestStatus, RequestType
 from app.schemas.change_request import ChangeRequestResponse
+from app.utils.cache_invalidation import invalidate_project_cache
 
 router = APIRouter()
 
@@ -47,7 +48,7 @@ async def approve_request(
     if req.request_type == RequestType.UPDATE:
         # Apply update
         update_data = req.data
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = datetime.now(timezone.utc)
         await project.set(update_data)
         
     elif req.request_type == RequestType.DELETE:
@@ -56,7 +57,7 @@ async def approve_request(
         
     # Mark Approved
     req.status = RequestStatus.APPROVED
-    req.updated_at = datetime.utcnow()
+    req.updated_at = datetime.now(timezone.utc)
     await req.save()
     
     return req
@@ -76,7 +77,7 @@ async def reject_request(
         
     req.status = RequestStatus.REJECTED
     req.admin_notes = reason
-    req.updated_at = datetime.utcnow()
+    req.updated_at = datetime.now(timezone.utc)
     await req.save()
     
     return req

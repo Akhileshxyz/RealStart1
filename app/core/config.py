@@ -28,8 +28,13 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    # Redis (for rate limiting)
-    REDIS_URL: str = "redis://localhost:6379"
+    # Redis (for caching and rate limiting)
+    REDIS_URL: str = "redis://localhost:6379/0"
+    ENABLE_REDIS_CACHE: bool = True
+    REDIS_CACHE_TTL_DEFAULT: int = 300  # 5 minutes
+    REDIS_CACHE_TTL_USER: int = 600  # 10 minutes
+    REDIS_CACHE_TTL_PUBLIC: int = 3600  # 1 hour
+    REDIS_CACHE_TTL_LANDMARKS: int = 21600  # 6 hours
 
     # Email
     SMTP_HOST: str = "smtp.gmail.com"

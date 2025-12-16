@@ -5,6 +5,7 @@ from app.api import deps
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
 from app.schemas.project import ProjectResponse, ProjectAdminUpdate
+from app.utils.cache_invalidation import invalidate_project_cache
 
 router = APIRouter()
 
@@ -42,6 +43,10 @@ async def approve_project(
     
     project.status = ProjectStatus.APPROVED
     await project.save()
+
+    # Invalidate all project caches
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+
     return project
 
 @router.patch("/{project_id}/reject", response_model=ProjectResponse)
@@ -58,4 +63,8 @@ async def reject_project(
     
     project.status = ProjectStatus.REJECTED
     await project.save()
+
+    # Invalidate all project caches
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+
     return project

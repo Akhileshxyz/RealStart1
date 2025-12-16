@@ -1,8 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.db.mongodb import init_db
+from app.core.redis_client import redis_client
 from app.api.v1 import (
     public_auth,
     admin_auth,
@@ -31,9 +35,19 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up RealStart application...")
     await init_db()
     logger.info("Database initialized successfully")
+
+    # Initialize Redis
+    await redis_client.initialize()
+    if redis_client.is_available:
+        logger.info("Redis cache initialized successfully")
+    else:
+        logger.warning("Redis cache not available - continuing without caching")
+
     yield
+
     # Shutdown
     logger.info("Shutting down RealStart application...")
+    await redis_client.close()
 
 # Define Tags Metadata for ordering
 tags_metadata = [
@@ -53,6 +67,11 @@ app = FastAPI(
     lifespan=lifespan,
     openapi_tags=tags_metadata
 )
+
+# Rate Limiting Setup
+limiter = Limiter(key_func=get_remote_address, storage_uri=settings.REDIS_URL)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Configuration
 allowed_origins = settings.ALLOWED_ORIGINS.split(",")

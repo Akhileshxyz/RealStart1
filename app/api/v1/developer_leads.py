@@ -6,6 +6,7 @@ from app.models.user import User, UserRole
 from app.models.project import Project
 from app.models.lead import ProjectLead, LeadStatus
 from app.schemas.lead import LeadResponse, LeadUpdate
+from app.services.project_service import get_project_by_slug
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ async def list_project_leads(
     Only accessible by the Developer who owns the project (or Admins).
     """
     # 1. Find Project
-    project = await Project.find_one(Project.slug == slug)
+    project = await get_project_by_slug(slug=slug, use_cache=True)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 

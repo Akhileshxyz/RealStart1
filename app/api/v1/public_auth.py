@@ -1,4 +1,7 @@
 from typing import Any
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.api import deps
@@ -9,9 +12,11 @@ from app.schemas.auth import Token, UserCreate, UserResponse
 from app.schemas.developer import DeveloperCreate, DeveloperResponse
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/register", response_model=UserResponse)
-async def register_public_user(user_in: UserCreate) -> Any:
+@limiter.limit("3/hour")
+async def register_public_user(request: Request, user_in: UserCreate) -> Any:
     """
     Create a new user (Public Portal).
     Public users can only register as BUYER role.
@@ -35,7 +40,9 @@ async def register_public_user(user_in: UserCreate) -> Any:
     return user
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 async def login_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
