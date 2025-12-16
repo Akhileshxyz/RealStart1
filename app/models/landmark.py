@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Union
 from beanie import Document
 from pydantic import Field
 
@@ -25,7 +25,7 @@ class Landmark(Document):
 
     # Additional metadata
     description: Optional[str] = None
-    nearby_amenities: Optional[Dict[str, Any]] = None
+    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, field_validator
@@ -21,7 +21,8 @@ class LandmarkCreate(BaseModel):
     rera_projects_count: Optional[int] = 0
     
     description: Optional[str] = None
-    nearby_amenities: Optional[Dict[str, Any]] = None
+    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+
     @field_validator('latitude')
     @classmethod
     def validate_latitude(cls, v):
@@ -54,8 +55,8 @@ class LandmarkResponse(BaseModel):
     rera_projects_count: Optional[int] = 0
     
     description: Optional[str] = None
-    nearby_amenities: Optional[Dict[str, Any]] = None
-    
+    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+
     nearby_projects: List[ProjectResponse] = []
     
     created_at: datetime

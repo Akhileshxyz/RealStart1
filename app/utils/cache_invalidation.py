@@ -175,6 +175,22 @@ async def invalidate_webhook_cache(developer_id: UUID) -> int:
     return total_deleted
 
 
+async def invalidate_developer_dashboard_cache(developer_id: UUID) -> int:
+    """
+    Invalidate all dashboard cache keys for a developer.
+
+    Args:
+        developer_id: Developer UUID
+
+    Returns:
+        Number of keys deleted
+    """
+    pattern = redis_client.make_key("developer", str(developer_id), "dashboard", "*")
+    deleted = await redis_client.delete_pattern(pattern)
+    logger.info(f"Invalidated {deleted} dashboard cache keys for developer {developer_id}")
+    return deleted
+
+
 async def invalidate_admin_cache(resource_type: str) -> int:
     """
     Invalidate admin dashboard cache for a specific resource type.
@@ -235,6 +251,7 @@ __all__ = [
     'invalidate_lead_cache',
     'invalidate_landmark_cache',
     'invalidate_webhook_cache',
+    'invalidate_developer_dashboard_cache',
     'invalidate_admin_cache',
     'invalidate_all_user_sessions',
     'invalidate_all_project_lists',

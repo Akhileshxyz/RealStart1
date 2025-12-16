@@ -11,7 +11,7 @@ from app.models.user import User
 from app.services.webhook_service import WebhookService
 
 from app.services.project_service import get_project_by_slug
-from app.utils.cache_invalidation import invalidate_lead_cache, invalidate_user_cache
+from app.utils.cache_invalidation import invalidate_lead_cache, invalidate_user_cache, invalidate_developer_dashboard_cache
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -45,6 +45,7 @@ async def log_view(
     await lead.save()
     # Invalidate caches
     await invalidate_lead_cache(project.id, current_user.id)
+    await invalidate_developer_dashboard_cache(project.developer_id)
     return {"message": "View logged"}
 
 @router.post("/{slug}/wishlist")
@@ -78,6 +79,7 @@ async def toggle_wishlist(
     await lead.save()
     # Invalidate caches
     await invalidate_lead_cache(project.id, current_user.id)
+    await invalidate_developer_dashboard_cache(project.developer_id)
     return {"message": "Updated", "is_wishlisted": lead.is_wishlisted}
 
 @router.post("/{slug}/legal-request")
@@ -108,7 +110,10 @@ async def request_legal(
             "user_email": current_user.email,
             "user_phone": current_user.phone
     }, project.developer_id)
-    
+
+    # Invalidate developer dashboard cache
+    await invalidate_developer_dashboard_cache(project.developer_id)
+
     return {"message": "Legal consultation requested"}
 
 @router.post("/{slug}/book-visit")
@@ -138,5 +143,8 @@ async def book_visit(
             "user_email": current_user.email,
             "user_phone": current_user.phone
     }, project.developer_id)
-    
+
+    # Invalidate developer dashboard cache
+    await invalidate_developer_dashboard_cache(project.developer_id)
+
     return {"message": "Visit booked"}
