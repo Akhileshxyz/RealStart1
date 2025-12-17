@@ -4,6 +4,18 @@ from datetime import datetime
 from pydantic import BaseModel, field_validator
 from app.schemas.project import ProjectResponse
 
+class LandmarkSummary(BaseModel):
+    id: UUID
+    name: str
+    city: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    avg_price_per_sqft: Optional[float] = None
+    median_price: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
+
 class LandmarkCreate(BaseModel):
     name: str
     city: str

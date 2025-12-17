@@ -10,6 +10,8 @@ from app.models.webhook import WebhookSubscription
 from app.models.change_request import ProjectChangeRequest
 from app.models.landmark import Landmark
 from app.models.visit import VisitBooking
+from app.models.team import DeveloperTeamMember
+from app.models.subscription import SubscriptionPlan, DeveloperSubscription
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -25,7 +27,10 @@ async def init_db():
             WebhookSubscription,
             ProjectChangeRequest,
             Landmark,
-            VisitBooking
+            VisitBooking,
+            DeveloperTeamMember,
+            SubscriptionPlan,
+            DeveloperSubscription
         ]
     )
 

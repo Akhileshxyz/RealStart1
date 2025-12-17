@@ -51,7 +51,15 @@ async def get_project_by_slug(
     logger.debug(f"Project cache MISS for slug: {slug}")
 
     if status:
-        project = await Project.find_one(Project.slug == slug, Project.status == status)
+        # If filtering by APPROVED (Public), also enforce is_hidden=False
+        if status == ProjectStatus.APPROVED:
+            project = await Project.find_one(
+                Project.slug == slug, 
+                Project.status == status,
+                Project.is_hidden == False
+            )
+        else:
+            project = await Project.find_one(Project.slug == slug, Project.status == status)
     else:
         project = await Project.find_one(Project.slug == slug)
 
@@ -130,7 +138,8 @@ async def get_approved_projects(
     # Cache miss - query database
     logger.debug(f"Approved projects cache MISS (skip={skip}, limit={limit})")
     projects = await Project.find(
-        Project.status == ProjectStatus.APPROVED
+        Project.status == ProjectStatus.APPROVED,
+        Project.is_hidden == False
     ).skip(skip).limit(limit).to_list()
 
     # Cache the results

@@ -10,7 +10,8 @@ from app.models.landmark import Landmark
 from app.models.visit import VisitBooking, VisitStatus
 from app.schemas.project import ProjectResponse
 from app.schemas.lead import LeadResponse
-from app.schemas.landmark import LandmarkResponse, LandmarkCreate
+from app.core.config import settings
+from app.schemas.landmark import LandmarkResponse, LandmarkCreate, LandmarkSummary
 from app.schemas.visit import VisitBookingResponse, VisitBookingCreate
 from app.services.project_service import get_all_projects_for_geospatial
 from app.core.redis_client import redis_client
@@ -120,43 +121,39 @@ async def get_wishlist(
 
 # --- Landmarks (Market Analyzer) ---
 
-@router.get("/public/landmarks", response_model=List[LandmarkResponse])
+@router.get("/public/landmarks", response_model=List[LandmarkSummary])
 async def list_landmarks(
     city: Optional[str] = None
 ):
     """
-    List landmarks, optionally filtered by city.
+    List landmarks (Summary View), optionally filtered by city.
     TIER 3 CACHING: Results cached for 6 hours.
     """
     # Try cache first
+    # Using 'summary' in key to differentiate from full list
     if city:
-        cache_key = redis_client.make_key("public", "landmarks", "city", city)
+        cache_key = redis_client.make_key("public", "landmarks", "city", city, "summary")
     else:
-        cache_key = redis_client.make_key("public", "landmarks", "all")
+        cache_key = redis_client.make_key("public", "landmarks", "all", "summary")
 
     cached = await redis_client.get(cache_key)
     if cached:
-        return [LandmarkResponse(**l) for l in cached]
+        return [LandmarkSummary(**l) for l in cached]
 
-    # Cache miss - query database
+    # Cache miss - query database with projection
     if city:
-        landmarks = await Landmark.find(Landmark.city == city).to_list()
+        landmarks = await Landmark.find(Landmark.city == city).project(LandmarkSummary).to_list()
     else:
-        landmarks = await Landmark.find_all().to_list()
+        landmarks = await Landmark.find_all().project(LandmarkSummary).to_list()
 
-    # Convert to response format with empty nearby_projects
-    response_landmarks = []
-    for landmark in landmarks:
-        landmark_dict = landmark.dict()
-        landmark_dict['nearby_projects'] = []
-        response_landmarks.append(LandmarkResponse(**landmark_dict))
+    # Cache results
+    if landmarks:
+        landmarks_dict = [l.model_dump() for l in landmarks]
+        # Use configured TTL or default to 6 hours
+        ttl = getattr(settings, 'REDIS_CACHE_TTL_LANDMARKS', 21600)
+        await redis_client.set(cache_key, landmarks_dict, ttl)
 
-    # Cache the results for 6 hours
-    if response_landmarks:
-        landmarks_dict = [l.model_dump() for l in response_landmarks]
-        await redis_client.set(cache_key, landmarks_dict, settings.REDIS_CACHE_TTL_LANDMARKS)
-
-    return response_landmarks
+    return landmarks
 
 import math
 

@@ -40,6 +40,7 @@ class Project(Document):
     # Metadata
     launch_year: Optional[int] = None
     total_area_sqft: Optional[float] = None
+    is_hidden: bool = False
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
