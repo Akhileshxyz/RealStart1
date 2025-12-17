@@ -15,8 +15,7 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/register", response_model=UserResponse)
-@limiter.limit("3/hour")
-async def register_public_user(request: Request, user_in: UserCreate) -> Any:
+async def register_public_user(user_in: UserCreate) -> Any:
     """
     Create a new user (Public Portal).
     Public users can only register as BUYER role.
