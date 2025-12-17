@@ -33,6 +33,7 @@ class UserAuth(BaseModel):
 
 class UserCreate(UserAuth):
     full_name: str
+    role: Optional[UserRole] = UserRole.BUYER
 
 class UserCreateAdmin(UserAuth):
     full_name: str

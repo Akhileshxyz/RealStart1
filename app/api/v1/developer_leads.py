@@ -11,6 +11,8 @@ from app.schemas.developer_dashboard import DeveloperDashboardMetrics, ProjectMe
 from app.services.project_service import get_project_by_slug
 from app.core.redis_client import redis_client
 from app.core.config import settings
+from app.services.permission_service import PermissionService
+from app.core.permissions import TeamLeadsPermission
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,29 +26,35 @@ async def list_project_leads(
 ) -> Any:
     """
     List all leads for a specific project.
-    Only accessible by the Developer who owns the project (or Admins).
     """
-    # 1. Find Project
+    # 1. Find Project (to get developer_id for scope check)
     project = await get_project_by_slug(slug=slug, use_cache=True)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # 2. Authorization Check
-    # If not admin, check if user is the developer
-    # Simplify: If user role is developer, we assume they own it (for now) or check ID match if we had it.
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER]:
-         raise HTTPException(status_code=403, detail="Not authorized")
+    # 2. Authorization Check (Basic View Access)
+    await PermissionService.enforce(current_user, TeamLeadsPermission.VIEW_LEADS_BASIC.value, developer_id_scope=project.developer_id)
     
-    # In real app: if current_user.role == DEVELOPER: assert project.developer_id == current_user.id or logic
-    
-    # 3. Fetch Leads
+    # 3. Check for Full Access (to decide on redaction)
+    can_view_full = await PermissionService.has_permission(current_user, TeamLeadsPermission.VIEW_LEADS_FULL.value)
+
+    # 4. Fetch Leads
     leads = await ProjectLead.find(ProjectLead.project_id == project.id).to_list()
     
-    # 4. Augment with User Info
-    # This is N+1 but acceptable for small scale leads. In prod, use aggregation.
+    # 5. Augment with User Info
     response_leads = []
     for lead in leads:
         user = await User.get(lead.user_id)
+        
+        # Redaction Logic
+        user_email = user.email if user else None
+        user_phone = user.phone if user else None
+        
+        if not can_view_full:
+            # Redact
+            user_email = "***@***.com" if user_email else None
+            user_phone = "******" + user_phone[-4:] if user_phone and len(user_phone) > 4 else "**********"
+
         lead_resp = LeadResponse(
             id=lead.id,
             project_id=lead.project_id,
@@ -55,9 +63,9 @@ async def list_project_leads(
             last_viewed_at=lead.last_viewed_at,
             view_count=len(lead.viewed_at_history),
             developer_notes=lead.developer_notes,
-            user_full_name=user.full_name if user else None,
-            user_email=user.email if user else None,
-            user_phone=user.phone if user else None
+            user_full_name=user.full_name if user else "Unknown User",
+            user_email=user_email,
+            user_phone=user_phone
         )
         response_leads.append(lead_resp)
         
@@ -71,18 +79,22 @@ async def mark_lead_purchased(
     """
     Mark a lead as PURCHASED.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER]:
-         raise HTTPException(status_code=403, detail="Not authorized")
-         
     lead = await ProjectLead.get(lead_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
         
+    # Scope check requires knowing the project's developer
+    project = await Project.get(lead.project_id)
+    if not project:
+         raise HTTPException(status_code=404, detail="Project linked to lead not found")
+
+    await PermissionService.enforce(current_user, TeamLeadsPermission.MANAGE_LEADS.value, developer_id_scope=project.developer_id)
+         
     lead.status = LeadStatus.PURCHASED
     await lead.save()
     
-    # Ideally should fetch user to return full response, but for now returned partial is fine or we fetch
     user = await User.get(lead.user_id)
+    # Return full details as managing leads implies full access usually
     lead_resp = LeadResponse(
         id=lead.id,
         project_id=lead.project_id,
@@ -107,13 +119,16 @@ async def update_lead_status_generic(
     """
     Update lead status or notes.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER]:
-         raise HTTPException(status_code=403, detail="Not authorized")
-         
     lead = await ProjectLead.get(lead_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
-        
+
+    project = await Project.get(lead.project_id)
+    if not project:
+         raise HTTPException(status_code=404, detail="Project linked to lead not found")
+
+    await PermissionService.enforce(current_user, TeamLeadsPermission.MANAGE_LEADS.value, developer_id_scope=project.developer_id)
+         
     if lead_in.status:
         lead.status = lead_in.status
     if lead_in.developer_notes:
@@ -138,6 +153,8 @@ async def update_lead_status_generic(
     return lead_resp
 
 
+from app.core.permissions import TeamDashboardPermission
+
 @router.get("/dashboard", response_model=DeveloperDashboardMetrics)
 async def get_developer_dashboard(
     period: str = Query("day", regex="^(day|week|month|year)$"),
@@ -148,24 +165,9 @@ async def get_developer_dashboard(
 ) -> Any:
     """
     Get analytics dashboard for developer.
-
-    Metrics calculated based on time period:
-    - total_visitors: Unique users who viewed projects
-    - total_plot_visits: Visit bookings
-    - total_legal_consultations: Legal consultation requests
-    - interested_visitors: Users who wishlisted
-    - total_views: All views including repeats
-
-    Time period options:
-    - day: Current day (from 00:00 to now)
-    - week: Last 7 days
-    - month: Last 30 days
-    - year: Last 365 days
-    - Custom: Provide start_date and end_date
     """
     # Authorization check
-    if current_user.role not in [UserRole.DEVELOPER, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Not authorized to access developer dashboard")
+    await PermissionService.enforce(current_user, TeamDashboardPermission.VIEW_DASHBOARD.value)
 
     # 1. Calculate date range based on period
     if start_date and end_date:
@@ -206,19 +208,29 @@ async def get_developer_dashboard(
 
     logger.debug(f"Developer dashboard cache MISS for user {current_user.id}")
 
-    # 3. Get developer's projects
+    # 3. Get developer's projects logic
+    projects = []
+    
     if project_slug:
         project = await get_project_by_slug(project_slug, use_cache=True)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
-        # Verify ownership (if not admin)
-        if current_user.role == UserRole.DEVELOPER and project.developer_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to view this project's dashboard")
+            
+        # Verify scope/ownership
+        # If Admin, fine. If Dev/Team, must match scope.
+        await PermissionService.enforce(current_user, TeamDashboardPermission.VIEW_DASHBOARD.value, developer_id_scope=project.developer_id)
         projects = [project]
     else:
-        # Get all developer's projects
+        # Fetch all accessible projects
         if current_user.role == UserRole.DEVELOPER:
             projects = await Project.find(Project.developer_id == current_user.id).to_list()
+        elif current_user.role in [UserRole.SALES, UserRole.MARKETING, UserRole.MANAGER]:
+             from app.models.team import DeveloperTeamMember
+             member = await DeveloperTeamMember.find_one(DeveloperTeamMember.user_id == current_user.id)
+             if member:
+                 projects = await Project.find(Project.developer_id == member.developer_id).to_list()
+             else:
+                 projects = [] # Should not happen if enforce passed, unless inactive logic
         else:
             # Admin can see all projects
             projects = await Project.find_all().to_list()
