@@ -39,6 +39,10 @@ async def list_team_members(
         
     return response
 
+from app.core.permissions import ALL_PERMISSIONS
+
+from app.services.subscription_service import SubscriptionService
+
 @router.post("/invite", response_model=TeamMemberResponse)
 async def invite_team_member(
     invite_in: TeamMemberInvite,
@@ -46,18 +50,22 @@ async def invite_team_member(
 ) -> Any:
     """
     Invite a team member.
-    If user exists, links them.
-    If not, creates a new user account (Status: Buying/Marketing?) with basic details.
     """
     if current_user.role != UserRole.DEVELOPER:
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Check Subscription Limits
+    await SubscriptionService.check_team_limit(current_user.id)
+
+    # Validate Permissions
+    for p in invite_in.permissions:
+        if p not in ALL_PERMISSIONS:
+             raise HTTPException(status_code=400, detail=f"Invalid permission: {p}")
 
     # Check if user exists
     user = await User.find_one(User.email == invite_in.email)
     if not user:
         # Create new user
-        # Note: In a real app we'd trigger an email invite flow.
-        # Here we creates a user with a placeholder password.
         user = User(
             email=invite_in.email,
             full_name=invite_in.email.split("@")[0],
@@ -114,6 +122,10 @@ async def update_member_permissions(
     if update_in.role:
         member.role = update_in.role
     if update_in.permissions is not None:
+        # Validate Permissions
+        for p in update_in.permissions:
+            if p not in ALL_PERMISSIONS:
+                 raise HTTPException(status_code=400, detail=f"Invalid permission: {p}")
         member.permissions = update_in.permissions
         
     await member.save()

@@ -32,7 +32,7 @@ async def register_public_user(user_in: UserCreate) -> Any:
         email=user_in.email,
         hashed_password=security.get_password_hash(user_in.password),
         full_name=user_in.full_name,
-        role=UserRole.BUYER,
+        role=user_in.role,
         is_active=True,
     )
     await user.insert()

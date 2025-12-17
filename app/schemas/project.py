@@ -35,6 +35,7 @@ class ProjectResponse(ProjectBase):
     developer_id: UUID
     slug: str
     status: ProjectStatus
+    is_hidden: bool
     created_at: datetime
     updated_at: datetime
 
