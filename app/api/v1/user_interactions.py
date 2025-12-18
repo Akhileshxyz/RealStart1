@@ -1,5 +1,5 @@
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from datetime import datetime, timezone
 from fastapi import Request
 from slowapi import Limiter
@@ -11,6 +11,7 @@ from app.models.user import User
 from app.services.webhook_service import WebhookService
 
 from app.services.project_service import get_project_by_slug
+from app.models.legal_call import LegalCallRequest
 from app.utils.cache_invalidation import invalidate_lead_cache, invalidate_user_cache, invalidate_developer_dashboard_cache
 
 router = APIRouter()
@@ -87,6 +88,8 @@ async def toggle_wishlist(
 async def request_legal(
     request: Request,
     slug: str,
+    topics: list[str] = Body(["General Inquiry"]),
+    scheduled_time: datetime = Body(None),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
@@ -104,6 +107,16 @@ async def request_legal(
     lead.legal_requested_at = datetime.now(timezone.utc)
     lead.status = LeadStatus.CONTACTED # Implicitly interested
     await lead.save()
+    
+    # Create Legal Call Request Document
+    legal_request = LegalCallRequest(
+        user_id=current_user.id,
+        project_id=project.id,
+        topics=topics,
+        scheduled_time=scheduled_time,
+        created_at=datetime.utcnow()
+    )
+    await legal_request.save()
     
     await WebhookService.dispatch_event("lead.legal_request", {
             "project_slug": slug,

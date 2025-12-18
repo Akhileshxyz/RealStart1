@@ -3,7 +3,23 @@ from uuid import UUID, uuid4
 from typing import Optional
 from enum import Enum
 from beanie import Document, Indexed
-from pydantic import Field
+from typing import Optional, List
+from enum import Enum
+from beanie import Document, Indexed
+from pydantic import Field, BaseModel
+
+class LegalDocumentStatus(str, Enum):
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
+    NEEDS_UPDATE = "NEEDS_UPDATE"
+
+class LegalDocument(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str # e.g., "RTC", "EC"
+    file_url: str
+    status: LegalDocumentStatus = LegalDocumentStatus.PENDING
+    lawyer_notes: Optional[str] = None
+    verified_at: Optional[datetime] = None
 
 class ProjectStatus(str, Enum):
     PENDING = "PENDING"
@@ -45,6 +61,10 @@ class Project(Document):
     hidden_at: Optional[datetime] = None
     is_active: bool = True # For soft delete
     
+    # Legal / Documents
+    documents: List[LegalDocument] = Field(default_factory=list)
+    legal_status_summary: Optional[str] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

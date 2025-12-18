@@ -1,8 +1,21 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
-from app.models.project import ProjectStatus, ProjectAppovalType
+from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus
+
+# Legal Document Schemas
+class LegalDocumentCreate(BaseModel):
+    name: str
+    file_url: str
+
+class LegalDocumentResponse(BaseModel):
+    id: UUID
+    name: str
+    file_url: str
+    status: LegalDocumentStatus
+    lawyer_notes: Optional[str] = None
+    verified_at: Optional[datetime] = None
 
 # Shared Properties
 class ProjectBase(BaseModel):
@@ -19,11 +32,12 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     name: str
     slug: str
-    developer_id: UUID # In a real app, this might be inferred from auth, but passing it for now or we will handle it in the endpoint
+    developer_id: Optional[UUID] = None # Inferred from auth
+    documents: Optional[List[LegalDocumentCreate]] = None
 
 # Update by Developer
 class ProjectUpdate(ProjectBase):
-    pass
+    documents: Optional[List[LegalDocumentCreate]] = None
 
 # Update by Admin (Allows Status Change)
 class ProjectAdminUpdate(ProjectBase):
@@ -38,6 +52,8 @@ class ProjectResponse(ProjectBase):
     is_hidden: bool
     created_at: datetime
     updated_at: datetime
+    documents: List[LegalDocumentResponse] = []
+    legal_status_summary: Optional[str] = None
 
     class Config:
         from_attributes = True

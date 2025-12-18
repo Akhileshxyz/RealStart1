@@ -23,7 +23,9 @@ from app.api.v1 import (
     admin_settings,
     developer_team,
     admin_subscriptions,
-    developer_subscriptions
+    admin_subscriptions,
+    developer_subscriptions,
+    lawyer_portal
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -65,6 +67,7 @@ tags_metadata = [
     {"name": "Admin - Users", "description": "Admin user account management."},
     {"name": "Admin - Subscriptions", "description": "Subscription Plan Management."},
     {"name": "⚙️ Settings", "description": "User settings for all user types - Password change and Profile management."},
+    {"name": "⚖️ Lawyer Portal", "description": "Legal document verification and call management."},
 ]
 
 app = FastAPI(
@@ -125,6 +128,9 @@ app.include_router(admin_subscriptions.router, prefix=f"{settings.API_V1_STR}/ad
 
 # 6. Settings (for all user types)
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["⚙️ Settings"])
+
+# 7. Lawyer Portal
+app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["⚖️ Lawyer Portal"])
 
 @app.get("/")
 async def root():

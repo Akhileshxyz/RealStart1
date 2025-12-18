@@ -12,6 +12,7 @@ from app.models.landmark import Landmark
 from app.models.visit import VisitBooking
 from app.models.team import DeveloperTeamMember
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription
+from app.models.legal_call import LegalCallRequest
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -30,7 +31,8 @@ async def init_db():
             VisitBooking,
             DeveloperTeamMember,
             SubscriptionPlan,
-            DeveloperSubscription
+            DeveloperSubscription,
+            LegalCallRequest
         ]
     )
 
