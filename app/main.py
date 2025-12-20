@@ -25,7 +25,8 @@ from app.api.v1 import (
     admin_subscriptions,
     admin_subscriptions,
     developer_subscriptions,
-    lawyer_portal
+    lawyer_portal,
+    developer_uploads
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -69,6 +70,7 @@ tags_metadata = [
     {"name": "Developer - Webhooks", "description": "Developer webhook management for real-time notifications."},
     {"name": "Developer - Team", "description": "Developer team member management and access control."},
     {"name": "Developer - Subscriptions", "description": "Developer subscription plans and purchases."},
+    {"name": "Developer - Uploads", "description": "File upload for documents and images (RERA, RTC, DC Conversion, Layout Approval, Project Images)."},
     {"name": "Admin - Authentication", "description": "Login for System Administrators."},
     {"name": "Admin - Projects", "description": "Admin project approval and management."},
     {"name": "Admin - Developers", "description": "Admin developer account management."},
@@ -122,6 +124,7 @@ app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/develo
 app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["Developer - Webhooks"])
 app.include_router(developer_team.router, prefix=f"{settings.API_V1_STR}/developers/team", tags=["Developer - Team"])
 app.include_router(developer_subscriptions.router, prefix=f"{settings.API_V1_STR}/developers/subscriptions", tags=["Developer - Subscriptions"])
+app.include_router(developer_uploads.router, prefix=f"{settings.API_V1_STR}/developers", tags=["Developer - Uploads"])
 
 # 3. Admin Portal
 app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin - Authentication"])
@@ -136,6 +139,13 @@ app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/setting
 
 # 5. Lawyer Portal
 app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer Portal"])
+
+# Static files for uploads
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+upload_dir = Path(settings.UPLOAD_DIR)
+upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
 @app.get("/")
 async def root():

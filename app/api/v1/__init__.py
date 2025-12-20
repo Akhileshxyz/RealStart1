@@ -13,5 +13,6 @@ __all__ = [
     "developer_webhooks",
     "user_interactions",
     "user_portal",
-    "admin_settings"
+    "admin_settings",
+    "developer_uploads"
 ]
