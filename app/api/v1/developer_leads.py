@@ -7,7 +7,16 @@ from app.models.user import User, UserRole
 from app.models.project import Project
 from app.models.lead import ProjectLead, LeadStatus
 from app.schemas.lead import LeadResponse, LeadUpdate
-from app.schemas.developer_dashboard import DeveloperDashboardMetrics, ProjectMetrics
+from app.schemas.developer_dashboard import (
+    DeveloperDashboardMetrics,
+    ProjectMetrics,
+    EnhancedDeveloperDashboard,
+    TrendDataPoint,
+    LeadStatusCount,
+    CityMetrics,
+    RecentActivityItem,
+    ProjectPerformance
+)
 from app.services.project_service import get_project_by_slug
 from app.core.redis_client import redis_client
 from app.core.config import settings
@@ -155,28 +164,32 @@ async def update_lead_status_generic(
 
 from app.core.permissions import TeamDashboardPermission
 
-@router.get("/dashboard", response_model=DeveloperDashboardMetrics)
+@router.get("/dashboard", response_model=EnhancedDeveloperDashboard)
 async def get_developer_dashboard(
-    period: str = Query("day", regex="^(day|week|month|year)$"),
+    period: str = Query("week", regex="^(day|week|month|year)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    project_slug: Optional[str] = None,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get analytics dashboard for developer.
+    Get comprehensive analytics dashboard for developer with:
+    - Total Visitors, Visit Bookings, Legal Consultations, Interested Buyers
+    - Visitors & Leads Trend (time series)
+    - Leads by Project
+    - Leads by City (user location)
+    - Projects Performance with conversion rates
+    - Recent Activity feed
+    - Lead Status Distribution
     """
     # Authorization check
     await PermissionService.enforce(current_user, TeamDashboardPermission.VIEW_DASHBOARD.value)
 
-    # 1. Calculate date range based on period
+    # Calculate date range
     if start_date and end_date:
-        # Custom range
         period_start = start_date
         period_end = end_date
         period_type = "custom"
     else:
-        # Predefined period
         period_end = datetime.utcnow()
         period_type = period
         if period == "day":
@@ -188,134 +201,183 @@ async def get_developer_dashboard(
         elif period == "year":
             period_start = period_end - timedelta(days=365)
         else:
-            # Default to day
-            period_start = period_end.replace(hour=0, minute=0, second=0, microsecond=0)
+            period_start = period_end - timedelta(days=7)
 
-    # 2. Try cache first
-    cache_key = redis_client.make_key(
-        "developer",
-        str(current_user.id),
-        "dashboard",
-        period_type,
-        str(period_start.date())
-    )
-
-    if redis_client.is_available:
-        cached_metrics = await redis_client.get(cache_key)
-        if cached_metrics:
-            logger.debug(f"Developer dashboard cache HIT for user {current_user.id}")
-            return DeveloperDashboardMetrics(**cached_metrics)
-
-    logger.debug(f"Developer dashboard cache MISS for user {current_user.id}")
-
-    # 3. Get developer's projects logic
-    projects = []
-    
-    if project_slug:
-        project = await get_project_by_slug(project_slug, use_cache=True)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-            
-        # Verify scope/ownership
-        # If Admin, fine. If Dev/Team, must match scope.
-        await PermissionService.enforce(current_user, TeamDashboardPermission.VIEW_DASHBOARD.value, developer_id_scope=project.developer_id)
-        projects = [project]
-    else:
-        # Fetch all accessible projects
-        if current_user.role == UserRole.DEVELOPER:
-            projects = await Project.find(Project.developer_id == current_user.id).to_list()
-        elif current_user.role in [UserRole.SALES, UserRole.MARKETING, UserRole.MANAGER]:
-             from app.models.team import DeveloperTeamMember
-             member = await DeveloperTeamMember.find_one(DeveloperTeamMember.user_id == current_user.id)
-             if member:
-                 projects = await Project.find(Project.developer_id == member.developer_id).to_list()
-             else:
-                 projects = [] # Should not happen if enforce passed, unless inactive logic
+    # Get developer's projects
+    if current_user.role == UserRole.DEVELOPER:
+        projects = await Project.find(Project.developer_id == current_user.id).to_list()
+    elif current_user.role in [UserRole.SALES, UserRole.MARKETING, UserRole.MANAGER]:
+        from app.models.team import DeveloperTeamMember
+        member = await DeveloperTeamMember.find_one(DeveloperTeamMember.user_id == current_user.id)
+        if member:
+            projects = await Project.find(Project.developer_id == member.developer_id).to_list()
         else:
-            # Admin can see all projects
-            projects = await Project.find_all().to_list()
+            projects = []
+    else:
+        projects = await Project.find_all().to_list()
 
-    # 4. Aggregate metrics across all projects
-    total_visitors = 0
-    total_plot_visits = 0
-    total_legal_consultations = 0
-    interested_visitors = 0
-    total_views = 0
-    project_metrics_list = []
+    # Initialize collections
+    from collections import defaultdict
+    total_visitors_set = set()
+    visit_bookings_count = 0
+    legal_consultations_count = 0
+    interested_buyers_set = set()
+    trend_data = defaultdict(lambda: {"visitors": set(), "leads": set()})
+    city_data = defaultdict(lambda: {"leads": set(), "visitors": set()})
+    status_counts = defaultdict(int)
+    recent_activities = []
+    project_performance_data = []
+    leads_by_project_data = []
 
+    # Process each project
     for project in projects:
-        # Get all leads for this project
         leads = await ProjectLead.find(ProjectLead.project_id == project.id).to_list()
 
-        # Calculate metrics for this project
-        unique_visitors = set()
-        plot_visits = 0
-        legal_consultations = 0
-        interested = 0
-        views = 0
+        project_visitors = set()
+        project_plot_visits = 0
+        project_legal = 0
+        project_interested = 0
+        project_views = 0
+        project_total_leads = len(leads)
 
         for lead in leads:
-            # Count views in date range
-            views_in_period = [
-                v for v in lead.viewed_at_history
-                if period_start <= v <= period_end
-            ]
-            if views_in_period:
-                unique_visitors.add(lead.user_id)
-                views += len(views_in_period)
+            user = await User.get(lead.user_id)
+            status_counts[lead.status.value] += 1
 
-            # Count wishlists in date range
-            if lead.is_wishlisted and lead.wishlisted_at:
-                if period_start <= lead.wishlisted_at <= period_end:
-                    interested += 1
+            # Process views
+            if lead.viewed_at_history:
+                for view_time in lead.viewed_at_history:
+                    if period_start <= view_time <= period_end:
+                        total_visitors_set.add(lead.user_id)
+                        project_visitors.add(lead.user_id)
+                        project_views += 1
+                        date_key = view_time.date().isoformat()
+                        trend_data[date_key]["visitors"].add(lead.user_id)
+                        # Use address as city proxy (can be enhanced with actual city lookup)
+                        city = getattr(project, 'address', None) or "Unknown"
+                        city_data[city]["visitors"].add(lead.user_id)
 
-            # Count legal requests in date range
-            if lead.is_legal_requested and lead.legal_requested_at:
-                if period_start <= lead.legal_requested_at <= period_end:
-                    legal_consultations += 1
+                        if len(recent_activities) < 50:
+                            recent_activities.append({
+                                "activity_type": "view",
+                                "user_name": user.full_name if user else "Unknown",
+                                "user_email": user.email if user else None,
+                                "project_name": project.name,
+                                "project_slug": project.slug,
+                                "timestamp": view_time
+                            })
 
-            # Count visit bookings in date range
-            if lead.visit_booked_at:
-                if period_start <= lead.visit_booked_at <= period_end:
-                    plot_visits += 1
+            # Process wishlists
+            if lead.is_wishlisted and lead.wishlisted_at and period_start <= lead.wishlisted_at <= period_end:
+                interested_buyers_set.add(lead.user_id)
+                project_interested += 1
+                date_key = lead.wishlisted_at.date().isoformat()
+                trend_data[date_key]["leads"].add(lead.user_id)
+                city = getattr(project, 'address', None) or "Unknown"
+                city_data[city]["leads"].add(lead.user_id)
 
-        # Aggregate totals
-        total_visitors += len(unique_visitors)
-        total_plot_visits += plot_visits
-        total_legal_consultations += legal_consultations
-        interested_visitors += interested
-        total_views += views
+                if len(recent_activities) < 50:
+                    recent_activities.append({
+                        "activity_type": "wishlist",
+                        "user_name": user.full_name if user else "Unknown",
+                        "user_email": user.email if user else None,
+                        "project_name": project.name,
+                        "project_slug": project.slug,
+                        "timestamp": lead.wishlisted_at
+                    })
 
-        # Store project-level metrics
-        project_metrics_list.append(ProjectMetrics(
+            # Process legal requests
+            if lead.is_legal_requested and lead.legal_requested_at and period_start <= lead.legal_requested_at <= period_end:
+                legal_consultations_count += 1
+                project_legal += 1
+                date_key = lead.legal_requested_at.date().isoformat()
+                trend_data[date_key]["leads"].add(lead.user_id)
+                city = getattr(project, 'address', None) or "Unknown"
+                city_data[city]["leads"].add(lead.user_id)
+
+                if len(recent_activities) < 50:
+                    recent_activities.append({
+                        "activity_type": "legal_request",
+                        "user_name": user.full_name if user else "Unknown",
+                        "user_email": user.email if user else None,
+                        "project_name": project.name,
+                        "project_slug": project.slug,
+                        "timestamp": lead.legal_requested_at
+                    })
+
+            # Process visit bookings
+            if lead.visit_booked_at and period_start <= lead.visit_booked_at <= period_end:
+                visit_bookings_count += 1
+                project_plot_visits += 1
+                date_key = lead.visit_booked_at.date().isoformat()
+                trend_data[date_key]["leads"].add(lead.user_id)
+                city = getattr(project, 'address', None) or "Unknown"
+                city_data[city]["leads"].add(lead.user_id)
+
+                if len(recent_activities) < 50:
+                    recent_activities.append({
+                        "activity_type": "visit_booking",
+                        "user_name": user.full_name if user else "Unknown",
+                        "user_email": user.email if user else None,
+                        "project_name": project.name,
+                        "project_slug": project.slug,
+                        "timestamp": lead.visit_booked_at
+                    })
+
+        # Project performance
+        conversion_rate = (project_interested / len(project_visitors) * 100) if project_visitors else 0
+        project_performance_data.append(ProjectPerformance(
             project_id=project.id,
             project_name=project.name,
             project_slug=project.slug,
-            visitors=len(unique_visitors),
-            plot_visits=plot_visits,
-            legal_consultations=legal_consultations,
-            interested_visitors=interested,
-            total_views=views
+            city=getattr(project, 'address', None),
+            visitors=len(project_visitors),
+            conversion_rate=round(conversion_rate, 2),
+            total_leads=project_total_leads
         ))
 
-    # 5. Build response
-    metrics = DeveloperDashboardMetrics(
+        # Leads by project
+        leads_by_project_data.append(ProjectMetrics(
+            project_id=project.id,
+            project_name=project.name,
+            project_slug=project.slug,
+            city=getattr(project, 'address', None),
+            visitors=len(project_visitors),
+            plot_visits=project_plot_visits,
+            legal_consultations=project_legal,
+            interested_visitors=project_interested,
+            total_views=project_views
+        ))
+
+    # Build trend data
+    trend_list = [TrendDataPoint(date=date_str, visitors=len(trend_data[date_str]["visitors"]),
+                  leads=len(trend_data[date_str]["leads"])) for date_str in sorted(trend_data.keys())]
+
+    # Build city metrics
+    city_metrics_list = [CityMetrics(city=city, leads=len(data["leads"]), visitors=len(data["visitors"]))
+                         for city, data in city_data.items()]
+    city_metrics_list.sort(key=lambda x: x.leads, reverse=True)
+
+    # Build lead status distribution
+    status_distribution = [LeadStatusCount(status=status, count=count) for status, count in status_counts.items()]
+
+    # Sort recent activities
+    recent_activities.sort(key=lambda x: x["timestamp"], reverse=True)
+    recent_activity_items = [RecentActivityItem(**activity) for activity in recent_activities[:20]]
+
+    # Build response
+    return EnhancedDeveloperDashboard(
         period_start=period_start,
         period_end=period_end,
         period_type=period_type,
-        total_visitors=total_visitors,
-        total_plot_visits=total_plot_visits,
-        total_legal_consultations=total_legal_consultations,
-        interested_visitors=interested_visitors,
-        total_views=total_views,
-        projects=project_metrics_list
+        total_visitors=len(total_visitors_set),
+        visit_bookings=visit_bookings_count,
+        legal_consultations=legal_consultations_count,
+        interested_buyers=len(interested_buyers_set),
+        visitors_leads_trend=trend_list,
+        leads_by_project=leads_by_project_data,
+        leads_by_city=city_metrics_list,
+        projects_performance=project_performance_data,
+        recent_activity=recent_activity_items,
+        lead_status_distribution=status_distribution
     )
-
-    # 6. Cache the results
-    if redis_client.is_available:
-        # Cache for 1 hour (current day) or 24 hours (past periods)
-        ttl = 3600 if period_type == "day" else 86400
-        await redis_client.set(cache_key, metrics.model_dump(), ttl)
-        logger.debug(f"Cached developer dashboard for user {current_user.id} with TTL {ttl}s")
-
-    return metrics
