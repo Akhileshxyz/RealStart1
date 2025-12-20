@@ -57,10 +57,10 @@ async def lifespan(app: FastAPI):
 
 # Define Tags Metadata for ordering
 tags_metadata = [
-    {"name": "🔐 User Authentication", "description": "Login and Registration for Buyers/Developers."},
-    {"name": "🛡️ Admin Authentication", "description": "Login for System Administrators."},
-    {"name": "🏠 End User Portal", "description": "Buyer features: Landmarks, History, Wishlist, Profile."},
-    {"name": "🏢 Public Listings", "description": "Publicly accessible project listings."},
+    {"name": "User Authentication", "description": "Login and Registration for Buyers/Developers."},
+    {"name": "Admin Authentication", "description": "Login for System Administrators."},
+    {"name": "End User Portal", "description": "Buyer features: Landmarks, History, Wishlist, Profile."},
+    {"name": "Public Listings", "description": "Publicly accessible project listings."},
     {"name": "Developer - Projects", "description": "Developer project creation, editing, and visibility management."},
     {"name": "Developer - Leads", "description": "Developer lead tracking and analytics dashboard."},
     {"name": "Developer - Webhooks", "description": "Developer webhook management for real-time notifications."},
@@ -70,8 +70,8 @@ tags_metadata = [
     {"name": "Admin - Developers", "description": "Admin developer account management."},
     {"name": "Admin - Users", "description": "Admin user account management."},
     {"name": "Admin - Subscriptions", "description": "Subscription Plan Management."},
-    {"name": "⚙️ Settings", "description": "User settings for all user types - Password change and Profile management."},
-    {"name": "⚖️ Lawyer Portal", "description": "Legal document verification and call management."},
+    {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
+    {"name": "Lawyer Portal", "description": "Legal document verification and call management."},
 ]
 
 app = FastAPI(
@@ -106,15 +106,15 @@ app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 # Include Routers
 
 # 1. Authentication
-app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["🔐 User Authentication"])
-app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["🛡️ Admin Authentication"])
+app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["User Authentication"])
+app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin Authentication"])
 
 # 2. Public Listings
-app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["🏢 Public Listings"])
+app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Listings"])
 
 # 3. End User Portal
-app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}", tags=["🏠 End User Portal"])
-app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["🏠 End User Portal"])
+app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}", tags=["End User Portal"])
+app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["End User Portal"])
 
 # 4. Developer Portal
 app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
@@ -131,10 +131,10 @@ app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/
 app.include_router(admin_subscriptions.router, prefix=f"{settings.API_V1_STR}/admin/subscriptions", tags=["Admin - Subscriptions"])
 
 # 6. Settings (for all user types)
-app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["⚙️ Settings"])
+app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
 
 # 7. Lawyer Portal
-app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["⚖️ Lawyer Portal"])
+app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer Portal"])
 
 @app.get("/")
 async def root():

@@ -14,3 +14,9 @@ httpx==0.28.1
 redis==5.0.1
 hiredis==2.3.2
 slowapi==0.1.9
+
+# Payment gateway
+razorpay==1.4.2
+
+# Environment variables
+python-dotenv==1.0.1
