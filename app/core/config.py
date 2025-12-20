@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@yourdomain.com"
 
+    # Razorpay
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

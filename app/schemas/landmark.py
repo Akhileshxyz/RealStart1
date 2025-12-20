@@ -1,11 +1,11 @@
 from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from app.schemas.project import ProjectResponse
 
 class LandmarkSummary(BaseModel):
-    id: UUID
+    id: UUID = Field(alias="_id")
     name: str
     city: str
     latitude: Optional[float] = None
@@ -14,6 +14,7 @@ class LandmarkSummary(BaseModel):
     median_price: Optional[float] = None
     
     class Config:
+        populate_by_name = True
         from_attributes = True
 
 class LandmarkCreate(BaseModel):

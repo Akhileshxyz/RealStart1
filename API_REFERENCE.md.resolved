@@ -1,0 +1,1486 @@
+# RealStart API Reference (Generated)
+
+**Base URL**: `http://localhost:8000/api/v1`
+
+### 1. Register Public User
+**URL**: `http://localhost:8000/api/v1/auth/register`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/auth/register' -H 'Content-Type: application/json' -d '{"email": "newuser_yjapg2@example.com", "password": "StrongPass123!", "full_name": "New User", "role": "BUYER"}'
+```
+```json
+{
+  "id": "57454b2d-dee3-497b-8fef-37ab0f1163a5",
+  "email": "newuser_yjapg2@example.com",
+  "full_name": "New User",
+  "role": "BUYER",
+  "is_active": true
+}
+```
+
+**Failure Response**
+Status: `422`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/auth/register' -H 'Content-Type: application/json'
+```
+```json
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": [
+        "body",
+        "email"
+      ],
+      "msg": "Field required",
+      "input": {}
+    },
+    {
+      "type": "missing",
+      "loc": [
+        "body",
+        "password"
+      ],
+      "msg": "Field required",
+      "input": {}
+    },
+    {
+      "type": "missing",
+      "loc": [
+        "body",
+        "full_name"
+      ],
+      "msg": "Field required",
+      "input": {}
+    }
+  ]
+}
+```
+
+---
+
+### 2. Login
+**URL**: `http://localhost:8000/api/v1/auth/login`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/auth/login' -H 'Content-Type: application/x-www-form-urlencoded' -d 'username=user@realstart.com' -d 'password=user123'
+```
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUyMDEsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.YzfKxMkVbxDOp_-62dS7ztBvAIDVCCa9u5-z7-zWumA",
+  "token_type": "bearer"
+}
+```
+
+**Failure Response**
+Status: `429`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/auth/login' -H 'Content-Type: application/x-www-form-urlencoded' -d 'username=bad' -d 'password=bad'
+```
+```json
+{
+  "error": "Rate limit exceeded: 5 per 1 minute"
+}
+```
+
+---
+
+### 3. Get Current User
+**URL**: `http://localhost:8000/api/v1/auth/me`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/auth/me' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+{
+  "id": "92c5972f-f9eb-40a6-9200-7bc02b94aca8",
+  "email": "user@realstart.com",
+  "full_name": "Updated Name",
+  "role": "BUYER",
+  "is_active": true
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/auth/me' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 4. Register Admin User
+**URL**: `http://localhost:8000/api/v1/admin/register-admin`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/admin/register-admin' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTAsInN1YiI6ImM3YzMyOTM0LTRlYmItNDdlZS05NmM5LWQzYTljYmM0MTU1YyJ9.69trc_W9V23CPB5CkEd9kgieLI64mjih3l74n6961jg' -H 'Content-Type: application/json' -d '{"email": "newadmin_yjapg2@realstart.com", "password": "StrongAdminPass123!", "full_name": "New Admin", "role": "ADMIN"}'
+```
+```json
+{
+  "id": "52544ad1-3d4b-4c4f-bcee-68c7e5a04c12",
+  "email": "newadmin_yjapg2@realstart.com",
+  "full_name": "New Admin",
+  "role": "ADMIN",
+  "is_active": true
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/admin/register-admin' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"email": "newadmin_yjapg2@realstart.com", "password": "StrongAdminPass123!", "full_name": "New Admin", "role": "ADMIN"}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 5. Update Profile
+**URL**: `http://localhost:8000/api/v1/users/me`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/users/me' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8' -H 'Content-Type: application/json' -d '{"full_name": "Updated Name", "phone": "+1999999999"}'
+```
+```json
+{
+  "id": "92c5972f-f9eb-40a6-9200-7bc02b94aca8",
+  "email": "user@realstart.com",
+  "full_name": "Updated Name",
+  "phone": "+1999999999",
+  "role": "BUYER"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/users/me' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"full_name": "Updated Name", "phone": "+1999999999"}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 6. Get Profile
+**URL**: `http://localhost:8000/api/v1/users/me`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+{
+  "id": "92c5972f-f9eb-40a6-9200-7bc02b94aca8",
+  "email": "user@realstart.com",
+  "full_name": "Updated Name",
+  "phone": "+1999999999",
+  "role": "BUYER"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 7. View History
+**URL**: `http://localhost:8000/api/v1/users/me/history`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me/history' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+[
+  {
+    "name": "Project 9xyth1 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1495079b-ce4c-4c90-be67-2e4685a200c2",
+    "developer_id": "56abf9f0-dfad-43de-9222-edde57b72547",
+    "slug": "project-9xyth1",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:51:10.347000",
+    "updated_at": "2025-12-17T09:51:18.750000"
+  },
+  {
+    "name": "Project pegvjr",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "5d347b0c-8e37-466c-b71f-8911d7ed7445",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-pegvjr",
+    "status": "DELETED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:32:51.611000",
+    "updated_at": "2025-12-17T09:32:51.611000"
+  },
+  {
+    "name": "Project 63vvtq",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "65ff51fa-a761-48f1-8f27-bce935e56af6",
+    "developer_id": "bc9eb373-bfd6-4271-a548-5920809d7254",
+    "slug": "project-63vvtq",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:49:11.205000",
+    "updated_at": "2025-12-17T09:49:11.205000"
+  },
+  {
+    "name": "Project eiuiid",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "ea1a4626-31da-4fff-b34f-accd60387f39",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-eiuiid",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:47:27.595000",
+    "updated_at": "2025-12-17T09:47:27.595000"
+  }
+]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me/history' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 8. Wishlist
+**URL**: `http://localhost:8000/api/v1/users/me/wishlist`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me/wishlist' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+[
+  {
+    "name": "Project 9xyth1 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1495079b-ce4c-4c90-be67-2e4685a200c2",
+    "developer_id": "56abf9f0-dfad-43de-9222-edde57b72547",
+    "slug": "project-9xyth1",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:51:10.347000",
+    "updated_at": "2025-12-17T09:51:18.750000"
+  },
+  {
+    "name": "Project pegvjr",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "5d347b0c-8e37-466c-b71f-8911d7ed7445",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-pegvjr",
+    "status": "DELETED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:32:51.611000",
+    "updated_at": "2025-12-17T09:32:51.611000"
+  },
+  {
+    "name": "Project 63vvtq",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "65ff51fa-a761-48f1-8f27-bce935e56af6",
+    "developer_id": "bc9eb373-bfd6-4271-a548-5920809d7254",
+    "slug": "project-63vvtq",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:49:11.205000",
+    "updated_at": "2025-12-17T09:49:11.205000"
+  },
+  {
+    "name": "Project eiuiid",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "ea1a4626-31da-4fff-b34f-accd60387f39",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-eiuiid",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:47:27.595000",
+    "updated_at": "2025-12-17T09:47:27.595000"
+  }
+]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/users/me/wishlist' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 9. List Landmarks
+**URL**: `http://localhost:8000/api/v1/public/landmarks`
+
+**Success Response**
+Status: `500`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/landmarks' 
+```
+```json
+Internal Server Error
+```
+
+**Failure Response**
+Status: `500`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/landmarks' 
+```
+```json
+Internal Server Error
+```
+
+---
+
+### 18. Create Project
+**URL**: `http://localhost:8000/api/v1/developers/projects/`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/developers/projects/' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c' -H 'Content-Type: application/json' -d '{"name": "Project yjapg2", "slug": "project-yjapg2", "description": "A great project", "city": "Bangalore", "developer_id": "00000000-0000-0000-0000-000000000000"}'
+```
+```json
+{
+  "name": "Project yjapg2",
+  "description": "A great project",
+  "approval_type": null,
+  "rera_number": null,
+  "address": null,
+  "latitude": null,
+  "longitude": null,
+  "launch_year": null,
+  "id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+  "developer_id": "4990804b-e7db-4883-b04f-7cc28e8ea692",
+  "slug": "project-yjapg2",
+  "status": "PENDING",
+  "is_hidden": false,
+  "created_at": "2025-12-17T09:53:54.738658",
+  "updated_at": "2025-12-17T09:53:54.738661"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/developers/projects/' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"name": "Project yjapg2", "slug": "project-yjapg2", "description": "A great project", "city": "Bangalore", "developer_id": "00000000-0000-0000-0000-000000000000"}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 19. List My Projects
+**URL**: `http://localhost:8000/api/v1/developers/projects/my-projects`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/projects/my-projects' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c'
+```
+```json
+[
+  {
+    "name": "Project yjapg2",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+    "developer_id": "4990804b-e7db-4883-b04f-7cc28e8ea692",
+    "slug": "project-yjapg2",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:53:54.738000",
+    "updated_at": "2025-12-17T09:53:54.738000"
+  }
+]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/projects/my-projects' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 20. Update Project
+**URL**: `http://localhost:8000/api/v1/developers/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X PUT 'http://localhost:8000/api/v1/developers/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c' -H 'Content-Type: application/json' -d '{"name": "Project yjapg2 Updated", "slug": "project-yjapg2", "description": "Updated desc", "city": "Bangalore"}'
+```
+```json
+{
+  "_id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+  "developer_id": "4990804b-e7db-4883-b04f-7cc28e8ea692",
+  "city_id": null,
+  "zone_id": null,
+  "name": "Project yjapg2 Updated",
+  "slug": "project-yjapg2",
+  "description": "Updated desc",
+  "status": "PENDING",
+  "approval_type": null,
+  "rera_number": null,
+  "address": null,
+  "latitude": null,
+  "longitude": null,
+  "launch_year": null,
+  "total_area_sqft": null,
+  "is_hidden": false,
+  "hidden_at": null,
+  "is_active": true,
+  "created_at": "2025-12-17T09:53:54.738000",
+  "updated_at": "2025-12-17T09:54:03.055000"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X PUT 'http://localhost:8000/api/v1/developers/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"name": "Project yjapg2 Updated", "slug": "project-yjapg2", "description": "Updated desc", "city": "Bangalore"}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 16. List Public Projects
+**URL**: `http://localhost:8000/api/v1/public/projects/`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/projects/' 
+```
+```json
+[
+  {
+    "name": "Project 9xyth1 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1495079b-ce4c-4c90-be67-2e4685a200c2",
+    "developer_id": "56abf9f0-dfad-43de-9222-edde57b72547",
+    "slug": "project-9xyth1",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:51:10.347000",
+    "updated_at": "2025-12-17T09:51:18.750000"
+  }
+]
+```
+
+**Failure Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/projects/' 
+```
+```json
+[
+  {
+    "name": "Project 9xyth1 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1495079b-ce4c-4c90-be67-2e4685a200c2",
+    "developer_id": "56abf9f0-dfad-43de-9222-edde57b72547",
+    "slug": "project-9xyth1",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:51:10.347000",
+    "updated_at": "2025-12-17T09:51:18.750000"
+  }
+]
+```
+
+---
+
+### 37. List All Projects (Admin)
+**URL**: `http://localhost:8000/api/v1/admin/projects/`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/admin/projects/' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTAsInN1YiI6ImM3YzMyOTM0LTRlYmItNDdlZS05NmM5LWQzYTljYmM0MTU1YyJ9.69trc_W9V23CPB5CkEd9kgieLI64mjih3l74n6961jg'
+```
+```json
+[
+  {
+    "name": "Luxury Homes",
+    "description": "High end villas",
+    "approval_type": null,
+    "rera_number": null,
+    "address": "123 Rich St",
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "21b4cbdd-ce62-44b9-aed9-42b14d9a9468",
+    "developer_id": "1e9274f9-7af7-44af-8819-09ce3b044fbd",
+    "slug": "luxury-homes-8a31fb",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T07:48:16.700000",
+    "updated_at": "2025-12-09T07:48:16.700000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "6729c353-d5fd-4e33-a672-e2045f215a8e",
+    "developer_id": "fdf874f9-2723-4270-bef2-0288215df86c",
+    "slug": "lead-project-138c38",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:03:08.065000",
+    "updated_at": "2025-12-09T08:03:08.065000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "b346d3a1-5990-4a30-a3c3-3d7f445f09e8",
+    "developer_id": "4d2d86d8-616b-4a21-a2aa-e24c4a631d2d",
+    "slug": "lead-project-e2733d",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:04:39.953000",
+    "updated_at": "2025-12-09T08:04:39.953000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "4b0f2f39-8e4a-4cfb-ad52-6f64d51052df",
+    "developer_id": "de58f2c7-e2a1-405e-9bdb-cfc88a4a2c69",
+    "slug": "lead-project-192bf9",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:05:44.956000",
+    "updated_at": "2025-12-09T08:05:44.956000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1330dae6-c9cd-42f0-b455-f7ad4a2dbb25",
+    "developer_id": "325a840e-3a21-42ae-8f8f-157514c2ee2d",
+    "slug": "lead-project-d13221",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:06:30.745000",
+    "updated_at": "2025-12-09T08:06:30.745000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "d50e7ae7-eb65-4dcc-a0b4-b48ba7a25432",
+    "developer_id": "23a55e0f-781a-4a9b-adf5-1c60c3a64f9a",
+    "slug": "lead-project-df1a9d",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:07:22.968000",
+    "updated_at": "2025-12-09T08:07:22.968000"
+  },
+  {
+    "name": "Lead Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "50020c40-2d13-4cad-8e8a-1889081a30eb",
+    "developer_id": "833f2450-b5aa-4ca6-bcd7-c1237cd0596a",
+    "slug": "lead-project-66f8e8",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T08:08:40.753000",
+    "updated_at": "2025-12-09T08:08:40.753000"
+  },
+  {
+    "name": "string2",
+    "description": "string",
+    "approval_type": "RERA",
+    "rera_number": "2345698765234765",
+    "address": "string",
+    "latitude": null,
+    "longitude": null,
+    "launch_year": 2020,
+    "id": "ab05962f-af33-4583-a6bf-490bcef540e3",
+    "developer_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "slug": "string",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-09T10:51:14.907000",
+    "updated_at": "2025-12-09T10:51:14.907000"
+  },
+  {
+    "name": "Hook Proj",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "7945905c-fc50-477e-9298-a885a8978b7b",
+    "developer_id": "717f3889-1388-4ad0-be93-8a28fb3ce2f4",
+    "slug": "webhook-proj-d5e590",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-10T07:20:50.552000",
+    "updated_at": "2025-12-10T07:20:50.552000"
+  },
+  {
+    "name": "Hook Proj",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "65b45b22-591b-4d06-9ff4-5d53aea1b5f9",
+    "developer_id": "aaea06b8-b00f-46e7-8c9b-f1980d598c13",
+    "slug": "webhook-proj-8713b2",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-10T07:22:05.286000",
+    "updated_at": "2025-12-10T07:22:05.286000"
+  },
+  {
+    "name": "Public Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "12e71f52-a67c-4f23-ae17-b6d05a83479f",
+    "developer_id": "dc162b75-257f-48df-977a-e9df044955e5",
+    "slug": "proj-approve-c41168",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-11T05:12:33.122000",
+    "updated_at": "2025-12-11T05:12:33.122000"
+  },
+  {
+    "name": "Pending Project",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "7de8bed5-43ea-4967-9c03-b8fb3ccac6cb",
+    "developer_id": "dc162b75-257f-48df-977a-e9df044955e5",
+    "slug": "proj-pending-603db7",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T05:12:33.218000",
+    "updated_at": "2025-12-11T05:12:33.218000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "d33ef992-add8-4a7b-8035-2fe322b304e6",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-433bad",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:21:16.572000",
+    "updated_at": "2025-12-11T06:21:16.572000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "ec99c24b-a225-49c2-a49b-648e2a7998a0",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-98778b",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:22:29.360000",
+    "updated_at": "2025-12-11T06:22:29.360000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "95c72447-9779-4ca3-8ddf-baa78817df6c",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-d3ec95",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:22:31.447000",
+    "updated_at": "2025-12-11T06:22:31.447000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "b111be42-e736-444a-ab50-9eabb0142ce4",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-c95448",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:23:08.605000",
+    "updated_at": "2025-12-11T06:23:08.605000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "998e66c0-5d1b-4661-8552-3b92af4354ea",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-30d177",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:24:13.354000",
+    "updated_at": "2025-12-11T06:24:13.354000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "5cb498a3-1366-4094-aeff-65aff5e2afb5",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-a62ac3",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:25:24.912000",
+    "updated_at": "2025-12-11T06:25:24.912000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "cec75ebc-d0a4-42c0-af48-83d2f0137d67",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-120f3e",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:25:27.661000",
+    "updated_at": "2025-12-11T06:25:27.661000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "80179e84-2ef3-4c45-bf3b-761c8aa26ae0",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-2311fb",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:26:18.960000",
+    "updated_at": "2025-12-11T06:26:18.960000"
+  },
+  {
+    "name": "Portal Heaven",
+    "description": "Luxury Portal",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "88133b47-43ac-465d-b804-b71c0f1b8a16",
+    "developer_id": "57c2ea64-f228-49a1-86fc-ccfb65c7eb5f",
+    "slug": "portal-heaven-c09106",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-11T06:26:21.776000",
+    "updated_at": "2025-12-11T06:26:21.776000"
+  },
+  {
+    "name": "Park View Residency",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "5a5ffc7c-f537-4e39-b0e4-24224852c5c1",
+    "developer_id": "fe64600d-cd54-4e3a-b82b-5b803c66696c",
+    "slug": "park-view-residency-verified",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-15T05:11:22.151000",
+    "updated_at": "2025-12-15T05:11:22.151000"
+  },
+  {
+    "name": "Park View Residency",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": 12.978,
+    "longitude": 77.5946,
+    "launch_year": null,
+    "id": "25a7010b-d348-4e73-8432-e72de8fb869c",
+    "developer_id": "fe64600d-cd54-4e3a-b82b-5b803c66696c",
+    "slug": "park-view-residency-v2",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-15T05:14:00.854000",
+    "updated_at": "2025-12-15T05:14:00.854000"
+  },
+  {
+    "name": "Project 1",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "8b5f7b34-5414-4e75-8af8-bfdc3f9ae8d7",
+    "developer_id": "5793f2b4-b254-467c-9b83-3d4fc21a54a5",
+    "slug": "proj-419f07",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T03:55:09.816000",
+    "updated_at": "2025-12-17T03:55:09.816000"
+  },
+  {
+    "name": "Project 1",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1d3221c1-a41b-452c-a68b-63f393a0c07e",
+    "developer_id": "e67a5876-4f97-40ef-ba19-40fba8612f22",
+    "slug": "proj-848c09",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T03:56:30.520000",
+    "updated_at": "2025-12-17T03:56:30.520000"
+  },
+  {
+    "name": "Project 1",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "da5c657f-3582-40b9-b0c0-68bc711afcdb",
+    "developer_id": "7156d06a-3839-4ab4-88e8-ecc0b66c1f80",
+    "slug": "proj-06a4be",
+    "status": "PENDING",
+    "is_hidden": true,
+    "created_at": "2025-12-17T03:57:01.954000",
+    "updated_at": "2025-12-17T03:57:01.954000"
+  },
+  {
+    "name": "Project 1",
+    "description": null,
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "a3e44054-a842-4c43-972a-c78996617c16",
+    "developer_id": "f44ff5c5-6da5-4929-82fd-b281a1c2389b",
+    "slug": "proj-8c5c71",
+    "status": "PENDING",
+    "is_hidden": true,
+    "created_at": "2025-12-17T03:57:27.340000",
+    "updated_at": "2025-12-17T03:57:27.340000"
+  },
+  {
+    "name": "Project pegvjr",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "5d347b0c-8e37-466c-b71f-8911d7ed7445",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-pegvjr",
+    "status": "DELETED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:32:51.611000",
+    "updated_at": "2025-12-17T09:32:51.611000"
+  },
+  {
+    "name": "Project eiuiid",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "ea1a4626-31da-4fff-b34f-accd60387f39",
+    "developer_id": "42e6a5f6-f6cc-433b-a06c-0c39ef4f0378",
+    "slug": "project-eiuiid",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:47:27.595000",
+    "updated_at": "2025-12-17T09:47:27.595000"
+  },
+  {
+    "name": "Project 63vvtq",
+    "description": "A great project",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "65ff51fa-a761-48f1-8f27-bce935e56af6",
+    "developer_id": "bc9eb373-bfd6-4271-a548-5920809d7254",
+    "slug": "project-63vvtq",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:49:11.205000",
+    "updated_at": "2025-12-17T09:49:11.205000"
+  },
+  {
+    "name": "Project 9xyth1 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "1495079b-ce4c-4c90-be67-2e4685a200c2",
+    "developer_id": "56abf9f0-dfad-43de-9222-edde57b72547",
+    "slug": "project-9xyth1",
+    "status": "APPROVED",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:51:10.347000",
+    "updated_at": "2025-12-17T09:51:18.750000"
+  },
+  {
+    "name": "Debug Project 3umvzp",
+    "description": "Debug",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "cc1abc84-e54a-418d-a0c7-1b73bb5fb95c",
+    "developer_id": "4e7ce445-0b0d-484f-a388-8ba45f7972d7",
+    "slug": "debug-3umvzp",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:52:23.513000",
+    "updated_at": "2025-12-17T09:52:23.513000"
+  },
+  {
+    "name": "Project yjapg2 Updated",
+    "description": "Updated desc",
+    "approval_type": null,
+    "rera_number": null,
+    "address": null,
+    "latitude": null,
+    "longitude": null,
+    "launch_year": null,
+    "id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+    "developer_id": "4990804b-e7db-4883-b04f-7cc28e8ea692",
+    "slug": "project-yjapg2",
+    "status": "PENDING",
+    "is_hidden": false,
+    "created_at": "2025-12-17T09:53:54.738000",
+    "updated_at": "2025-12-17T09:54:03.055000"
+  }
+]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/admin/projects/' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 38. Approve Project
+**URL**: `http://localhost:8000/api/v1/admin/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd/approve`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/admin/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd/approve' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTAsInN1YiI6ImM3YzMyOTM0LTRlYmItNDdlZS05NmM5LWQzYTljYmM0MTU1YyJ9.69trc_W9V23CPB5CkEd9kgieLI64mjih3l74n6961jg'
+```
+```json
+{
+  "name": "Project yjapg2 Updated",
+  "description": "Updated desc",
+  "approval_type": null,
+  "rera_number": null,
+  "address": null,
+  "latitude": null,
+  "longitude": null,
+  "launch_year": null,
+  "id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+  "developer_id": "4990804b-e7db-4883-b04f-7cc28e8ea692",
+  "slug": "project-yjapg2",
+  "status": "APPROVED",
+  "is_hidden": false,
+  "created_at": "2025-12-17T09:53:54.738000",
+  "updated_at": "2025-12-17T09:54:03.055000"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/admin/projects/fe818a45-2cea-4e66-b3e8-9f8744edaccd/approve' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 17. Get Project by Slug
+**URL**: `http://localhost:8000/api/v1/public/projects/project-yjapg2`
+
+**Success Response**
+Status: `401`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/projects/project-yjapg2' 
+```
+```json
+{
+  "detail": "Not authenticated"
+}
+```
+
+**Failure Response**
+Status: `401`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/public/projects/project-yjapg2' 
+```
+```json
+{
+  "detail": "Not authenticated"
+}
+```
+
+---
+
+### 13. Log View (Interaction)
+**URL**: `http://localhost:8000/api/v1/users/interactions/project-yjapg2/view`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/users/interactions/project-yjapg2/view' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+{
+  "message": "View logged"
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/users/interactions/project-yjapg2/view' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 14. Toggle Wishlist
+**URL**: `http://localhost:8000/api/v1/users/interactions/project-yjapg2/wishlist`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/users/interactions/project-yjapg2/wishlist' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+{
+  "message": "Updated",
+  "is_wishlisted": true
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/users/interactions/project-yjapg2/wishlist' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 23. List Leads
+**URL**: `http://localhost:8000/api/v1/developers/leads/projects/project-yjapg2/leads`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/leads/projects/project-yjapg2/leads' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c'
+```
+```json
+[
+  {
+    "id": "cdac268f-de6a-4b62-8a71-4bdceb0307d8",
+    "project_id": "fe818a45-2cea-4e66-b3e8-9f8744edaccd",
+    "user_id": "92c5972f-f9eb-40a6-9200-7bc02b94aca8",
+    "status": "VIEWED",
+    "last_viewed_at": "2025-12-17T09:54:23.814000",
+    "view_count": 1,
+    "user_full_name": "Updated Name",
+    "user_email": "user@realstart.com",
+    "user_phone": "+1999999999",
+    "developer_notes": null
+  }
+]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/leads/projects/project-yjapg2/leads' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 28. Invite Team Member
+**URL**: `http://localhost:8000/api/v1/developers/team/invite`
+
+**Success Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/developers/team/invite' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c' -H 'Content-Type: application/json' -d '{"email": "teammate_yjapg2@example.com", "role": "SALES", "permissions": ["leads:view_basic"]}'
+```
+```json
+{
+  "detail": "Team member limit reached (0/0). Please upgrade your plan."
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X POST 'http://localhost:8000/api/v1/developers/team/invite' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"email": "teammate_yjapg2@example.com", "role": "SALES", "permissions": ["leads:view_basic"]}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 27. List Team Members
+**URL**: `http://localhost:8000/api/v1/developers/team/`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/team/' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxOTUsInN1YiI6IjQ5OTA4MDRiLWU3ZGItNDg4My1iMDRmLTdjYzI4ZThlYTY5MiJ9.VVKeW4DT74mk4R5cKQG3LeajIdtCPplj2Lg8x-PWT6c'
+```
+```json
+[]
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/developers/team/' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 48. Change Password
+**URL**: `http://localhost:8000/api/v1/settings/change-password`
+
+**Success Response**
+Status: `422`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/settings/change-password' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8' -H 'Content-Type: application/json' -d '{"old_password": "user123", "new_password": "user123"}'
+```
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": [
+        "body",
+        "new_password"
+      ],
+      "msg": "Value error, Password must be at least 8 characters long",
+      "input": "user123",
+      "ctx": {
+        "error": {}
+      }
+    }
+  ]
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X PATCH 'http://localhost:8000/api/v1/settings/change-password' -H 'Authorization: Bearer invalid' -H 'Content-Type: application/json' -d '{"old_password": "user123", "new_password": "user123"}'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+
+### 49. Get Profile (Settings)
+**URL**: `http://localhost:8000/api/v1/settings/profile`
+
+**Success Response**
+Status: `200`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/settings/profile' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjUxODYsInN1YiI6IjkyYzU5NzJmLWY5ZWItNDBhNi05MjAwLTdiYzAyYjk0YWNhOCJ9.5Ho2rYridXgWqK0KgD0OgLQTFmyALfngS4vPRVDpPn8'
+```
+```json
+{
+  "id": "92c5972f-f9eb-40a6-9200-7bc02b94aca8",
+  "email": "user@realstart.com",
+  "full_name": "Updated Name",
+  "role": "BUYER",
+  "is_active": true
+}
+```
+
+**Failure Response**
+Status: `403`
+```bash
+curl -X GET 'http://localhost:8000/api/v1/settings/profile' -H 'Authorization: Bearer invalid'
+```
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+---
+

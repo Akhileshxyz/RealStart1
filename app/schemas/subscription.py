@@ -27,7 +27,18 @@ class SubscriptionPlanResponse(BaseModel):
 # Subscription Schemas
 class SubscriptionCreate(BaseModel):
     plan_id: UUID
-    payment_method_id: Optional[str] = None # Placeholder for payment gateway token
+    payment_method_id: Optional[str] = None 
+
+class SubscriptionOrderResponse(BaseModel):
+    order_id: str
+    amount: float
+    currency: str = "INR"
+    key_id: str
+
+class SubscriptionVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 class SubscriptionResponse(BaseModel):
     id: UUID

@@ -34,6 +34,11 @@ class DeveloperSubscription(Document):
     
     status: SubscriptionStatus = SubscriptionStatus.PENDING
     payment_details: Optional[Dict[str, Any]] = None # Transaction ID etc.
+
+    # Razorpay Details
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
