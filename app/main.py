@@ -61,7 +61,11 @@ tags_metadata = [
     {"name": "🛡️ Admin Authentication", "description": "Login for System Administrators."},
     {"name": "🏠 End User Portal", "description": "Buyer features: Landmarks, History, Wishlist, Profile."},
     {"name": "🏢 Public Listings", "description": "Publicly accessible project listings."},
-    {"name": "🏗️ Developer Portal", "description": "Project and Lead management for Developers."},
+    {"name": "Developer - Projects", "description": "Developer project creation, editing, and visibility management."},
+    {"name": "Developer - Leads", "description": "Developer lead tracking and analytics dashboard."},
+    {"name": "Developer - Webhooks", "description": "Developer webhook management for real-time notifications."},
+    {"name": "Developer - Team", "description": "Developer team member management and access control."},
+    {"name": "Developer - Subscriptions", "description": "Developer subscription plans and purchases."},
     {"name": "Admin - Projects", "description": "Admin project approval and management."},
     {"name": "Admin - Developers", "description": "Admin developer account management."},
     {"name": "Admin - Users", "description": "Admin user account management."},
@@ -113,11 +117,11 @@ app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}", tags=["�
 app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["🏠 End User Portal"])
 
 # 4. Developer Portal
-app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["🏗️ Developer Portal"])
-app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/developers/leads", tags=["🏗️ Developer Portal"])
-app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["🏗️ Developer Portal"])
-app.include_router(developer_team.router, prefix=f"{settings.API_V1_STR}/developers/team", tags=["🏗️ Developer Portal"])
-app.include_router(developer_subscriptions.router, prefix=f"{settings.API_V1_STR}/developers/subscriptions", tags=["🏗️ Developer Portal"])
+app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
+app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/developers/leads", tags=["Developer - Leads"])
+app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["Developer - Webhooks"])
+app.include_router(developer_team.router, prefix=f"{settings.API_V1_STR}/developers/team", tags=["Developer - Team"])
+app.include_router(developer_subscriptions.router, prefix=f"{settings.API_V1_STR}/developers/subscriptions", tags=["Developer - Subscriptions"])
 
 # 5. Admin Portal
 app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
