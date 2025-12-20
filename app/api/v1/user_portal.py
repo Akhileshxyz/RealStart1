@@ -36,7 +36,7 @@ class UserProfileResponse(BaseModel):
     phone: Optional[str]
     role: str
 
-@router.patch("/users/me", response_model=UserProfileResponse)
+@router.patch("/users/me", response_model=UserProfileResponse, tags=["User - Profile"])
 async def update_user_profile(
     data: UserProfileUpdate,
     current_user: User = Depends(deps.get_current_user)
@@ -58,7 +58,7 @@ async def update_user_profile(
         role=current_user.role
     )
 
-@router.get("/users/me", response_model=UserProfileResponse)
+@router.get("/users/me", response_model=UserProfileResponse, tags=["User - Profile"])
 async def get_user_profile(
     current_user: User = Depends(deps.get_current_user)
 ):
@@ -76,7 +76,7 @@ async def get_user_profile(
 
 # --- History & Wishlist ---
 
-@router.get("/users/me/history", response_model=List[ProjectResponse])
+@router.get("/users/me/history", response_model=List[ProjectResponse], tags=["User - History & Wishlist"])
 async def get_view_history(
     current_user: User = Depends(deps.get_current_user)
 ):
@@ -93,7 +93,7 @@ async def get_view_history(
     projects = await Project.find(In(Project.id, project_ids)).to_list()
     return projects
 
-@router.get("/users/me/wishlist", response_model=List[ProjectResponse])
+@router.get("/users/me/wishlist", response_model=List[ProjectResponse], tags=["User - History & Wishlist"])
 async def get_wishlist(
     current_user: User = Depends(deps.get_current_user)
 ):
@@ -121,7 +121,7 @@ async def get_wishlist(
 
 # --- Landmarks (Market Analyzer) ---
 
-@router.get("/public/landmarks", response_model=List[LandmarkSummary])
+@router.get("/public/landmarks", response_model=List[LandmarkSummary], tags=["User - Landmarks"])
 async def list_landmarks(
     city: Optional[str] = None
 ):
@@ -173,7 +173,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-@router.get("/public/landmarks/{id}", response_model=LandmarkResponse)
+@router.get("/public/landmarks/{id}", response_model=LandmarkResponse, tags=["User - Landmarks"])
 async def get_landmark(id: str):
     """
     Get detailed market data for a landmark, including nearest layouts.
@@ -201,7 +201,7 @@ async def get_landmark(id: str):
     return landmark_response
 
 # Admin endpoint to create landmarks (for testing/population)
-@router.post("/admin/landmarks", response_model=LandmarkResponse)
+@router.post("/admin/landmarks", response_model=LandmarkResponse, tags=["Admin - Landmarks"])
 async def create_landmark(
     data: LandmarkCreate,
     current_admin: User = Depends(deps.get_current_active_admin)
@@ -213,7 +213,7 @@ async def create_landmark(
 
 # --- Visit Bookings ---
 
-@router.post("/users/me/bookings", response_model=VisitBookingResponse)
+@router.post("/users/me/bookings", response_model=VisitBookingResponse, tags=["User - Visit Bookings"])
 async def create_visit_booking(
     data: VisitBookingCreate,
     current_user: User = Depends(deps.get_current_user)
@@ -249,7 +249,7 @@ async def create_visit_booking(
 
     return booking
 
-@router.get("/users/me/bookings", response_model=List[VisitBookingResponse])
+@router.get("/users/me/bookings", response_model=List[VisitBookingResponse], tags=["User - Visit Bookings"])
 async def list_my_bookings(
     current_user: User = Depends(deps.get_current_user)
 ):

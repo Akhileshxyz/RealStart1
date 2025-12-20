@@ -57,19 +57,24 @@ async def lifespan(app: FastAPI):
 
 # Define Tags Metadata for ordering
 tags_metadata = [
-    {"name": "User Authentication", "description": "Login and Registration for Buyers/Developers."},
-    {"name": "Admin Authentication", "description": "Login for System Administrators."},
-    {"name": "End User Portal", "description": "Buyer features: Landmarks, History, Wishlist, Profile."},
-    {"name": "Public Listings", "description": "Publicly accessible project listings."},
+    {"name": "Authentication", "description": "User login and registration."},
+    {"name": "Public Projects", "description": "Publicly accessible project listings."},
+    {"name": "User - Profile", "description": "User profile management and information."},
+    {"name": "User - History & Wishlist", "description": "View history and wishlist management."},
+    {"name": "User - Landmarks", "description": "Market analyzer and landmark information."},
+    {"name": "User - Visit Bookings", "description": "Site visit booking and management."},
+    {"name": "User - Interactions", "description": "Project interactions: views, wishlist, legal requests, and visit bookings."},
     {"name": "Developer - Projects", "description": "Developer project creation, editing, and visibility management."},
     {"name": "Developer - Leads", "description": "Developer lead tracking and analytics dashboard."},
     {"name": "Developer - Webhooks", "description": "Developer webhook management for real-time notifications."},
     {"name": "Developer - Team", "description": "Developer team member management and access control."},
     {"name": "Developer - Subscriptions", "description": "Developer subscription plans and purchases."},
+    {"name": "Admin - Authentication", "description": "Login for System Administrators."},
     {"name": "Admin - Projects", "description": "Admin project approval and management."},
     {"name": "Admin - Developers", "description": "Admin developer account management."},
     {"name": "Admin - Users", "description": "Admin user account management."},
     {"name": "Admin - Subscriptions", "description": "Subscription Plan Management."},
+    {"name": "Admin - Landmarks", "description": "Admin landmark creation and management."},
     {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
     {"name": "Lawyer Portal", "description": "Legal document verification and call management."},
 ]
@@ -105,35 +110,31 @@ app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 
 # Include Routers
 
-# 1. Authentication
-app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["User Authentication"])
-app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin Authentication"])
+# 1. Public APIs
+app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
+app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Projects"])
+app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}")
+app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["User - Interactions"])
 
-# 2. Public Listings
-app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Listings"])
-
-# 3. End User Portal
-app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}", tags=["End User Portal"])
-app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["End User Portal"])
-
-# 4. Developer Portal
+# 2. Developer Portal
 app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
 app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/developers/leads", tags=["Developer - Leads"])
 app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["Developer - Webhooks"])
 app.include_router(developer_team.router, prefix=f"{settings.API_V1_STR}/developers/team", tags=["Developer - Team"])
 app.include_router(developer_subscriptions.router, prefix=f"{settings.API_V1_STR}/developers/subscriptions", tags=["Developer - Subscriptions"])
 
-# 5. Admin Portal
+# 3. Admin Portal
+app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin - Authentication"])
 app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
 app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/developers", tags=["Admin - Developers"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/admin/users", tags=["Admin - Users"])
 app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
 app.include_router(admin_subscriptions.router, prefix=f"{settings.API_V1_STR}/admin/subscriptions", tags=["Admin - Subscriptions"])
 
-# 6. Settings (for all user types)
+# 4. Settings (for all user types)
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
 
-# 7. Lawyer Portal
+# 5. Lawyer Portal
 app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer Portal"])
 
 @app.get("/")
