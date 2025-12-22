@@ -32,7 +32,7 @@ async def register_public_user(user_in: UserCreate) -> Any:
         email=user_in.email,
         hashed_password=security.get_password_hash(user_in.password),
         full_name=user_in.full_name,
-        role=user_in.role,
+        role=UserRole.BUYER,
         is_active=True,
     )
     await user.insert()
@@ -56,6 +56,13 @@ async def login_access_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
+        )
+
+    # Restrict Public Login to BUYERS only
+    if user.role != UserRole.BUYER:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden from this portal. Please use the administrative portal."
         )
 
     return {

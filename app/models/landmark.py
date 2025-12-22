@@ -2,13 +2,23 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Union
 from beanie import Document
-from pydantic import Field
+from pydantic import BaseModel, Field
+
+class GeoJSONLocation(BaseModel):
+    type: str = "Point"
+    coordinates: List[float] # [longitude, latitude]
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
     name: str
     city: str
     zone: Optional[str] = None
+    
+    # GeoJSON Location (Mandatory for map features)
+    location: GeoJSONLocation 
+    # Structure: {"type": "Point", "coordinates": [longitude, latitude]}
+    
+    # Legacy/Display helpers (optional, can be derived)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -32,3 +42,8 @@ class Landmark(Document):
 
     class Settings:
         name = "landmarks"
+        indexes = [
+            [("location", "2dsphere")],
+            "city",
+            "name"
+        ]

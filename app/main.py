@@ -25,7 +25,15 @@ from app.api.v1 import (
     admin_subscriptions,
     admin_subscriptions,
     developer_subscriptions,
-    lawyer_portal
+    lawyer_portal,
+    admin_dashboard,
+    admin_analytics,
+    admin_ads,
+    admin_team,
+    admin_team,
+    admin_landmarks,
+    admin_videos,
+    locality
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -74,7 +82,13 @@ tags_metadata = [
     {"name": "Admin - Developers", "description": "Admin developer account management."},
     {"name": "Admin - Users", "description": "Admin user account management."},
     {"name": "Admin - Subscriptions", "description": "Subscription Plan Management."},
+    {"name": "Admin - Dashboard", "description": "System-wide statistics and overview."},
+    {"name": "Admin - Analytics", "description": "System analytics and insights."},
+    {"name": "Admin - Ads", "description": "Ads management and tracking."},
+    {"name": "Admin - Team", "description": "Internal team and staff management."},
     {"name": "Admin - Landmarks", "description": "Admin landmark creation and management."},
+    {"name": "Admin - Videos", "description": "Video content management and analytics."},
+    {"name": "Locality", "description": "Map-based Locality Intelligence APIs (Mappls integration)."},
     {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
     {"name": "Lawyer Portal", "description": "Legal document verification and call management."},
 ]
@@ -130,8 +144,20 @@ app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/devel
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/admin/users", tags=["Admin - Users"])
 app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
 app.include_router(admin_subscriptions.router, prefix=f"{settings.API_V1_STR}/admin/subscriptions", tags=["Admin - Subscriptions"])
+app.include_router(admin_dashboard.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin - Dashboard"])
+app.include_router(admin_analytics.router, prefix=f"{settings.API_V1_STR}/admin/analytics", tags=["Admin - Analytics"])
+app.include_router(admin_ads.router, prefix=f"{settings.API_V1_STR}/admin/ads", tags=["Admin - Ads"])
+app.include_router(admin_team.router, prefix=f"{settings.API_V1_STR}/admin/team", tags=["Admin - Team"])
+app.include_router(admin_landmarks.router, prefix=f"{settings.API_V1_STR}/admin/landmarks", tags=["Admin - Landmarks"])
+app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
 
-# 4. Settings (for all user types)
+app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
+
+# 4. Locality Intelligence (Public/Auth optional depending on business logic)
+# Keeping strict auth validation inside endpoints if needed, generic prefix here.
+app.include_router(locality.router, prefix=f"{settings.API_V1_STR}/locality", tags=["Locality"])
+
+# 5. Settings (for all user types)
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
 
 # 5. Lawyer Portal

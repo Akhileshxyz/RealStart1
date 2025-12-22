@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
 
+    # Mappls (MapmyIndia)
+    MAPPLS_CLIENT_ID: str = ""
+    MAPPLS_CLIENT_SECRET: str = ""
+    MAPPLS_BASE_URL: str = "https://atlas.mappls.com/api" 
+    MAPPLS_AUTH_URL: str = "https://outpost.mapmyindia.com/api/security/oauth/token"
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

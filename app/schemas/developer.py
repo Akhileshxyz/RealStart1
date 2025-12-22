@@ -38,8 +38,12 @@ class DeveloperUpdate(BaseModel):
 
 class DeveloperResponse(DeveloperBase):
     id: UUID
+    is_active: bool
     created_at: datetime
     updated_at: datetime
+    
+    # Computed
+    tenure: Optional[str] = None # e.g. "2 years, 3 months"
 
     class Config:
         from_attributes = True

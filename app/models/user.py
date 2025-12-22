@@ -15,6 +15,12 @@ class UserRole(str, Enum):
     MANAGER = "MANAGER"
     DEVELOPER = "DEVELOPER"
 
+class Gender(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
+    PREFER_NOT_TO_SAY = "PREFER_NOT_TO_SAY"
+
 class User(Document):
     id: UUID = Field(default_factory=uuid4)
     email: Indexed(EmailStr, unique=True)
@@ -28,6 +34,20 @@ class User(Document):
     # Optional Profile Fields can be added here or in separate collections
     # e.g., lawyer_profile_id: Optional[UUID] = None
     developer_id: Optional[UUID] = None # Links User to Developer entity
+    
+    # Demographics
+    age: Optional[int] = None
+    gender: Optional[Gender] = None
+    engagement_score: int = 0
+    
+    @property
+    def engagement_level(self) -> str:
+        if self.engagement_score >= 80:
+            return "HIGH"
+        elif self.engagement_score >= 50:
+            return "MID"
+        else:
+            return "LOW"
 
     class Settings:
         name = "users"
