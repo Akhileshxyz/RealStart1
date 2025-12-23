@@ -10,9 +10,12 @@ from app.models.webhook import WebhookSubscription
 from app.models.change_request import ProjectChangeRequest
 from app.models.landmark import Landmark
 from app.models.visit import VisitBooking
-from app.models.team import DeveloperTeamMember
+from app.models.ad import Ad
+from app.models.video import Video
+from app.models.team import DeveloperTeamMember, StaffTask, SharedClient
+from app.models.review import Review
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription
-from app.models.legal_call import LegalCallRequest
+import app.models.legal_call as legal_call_module
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -30,9 +33,14 @@ async def init_db():
             Landmark,
             VisitBooking,
             DeveloperTeamMember,
+            StaffTask,
+            SharedClient,
             SubscriptionPlan,
             DeveloperSubscription,
-            LegalCallRequest
+            legal_call_module.LegalCallRequest,
+            Ad,
+            Video,
+            Review
         ]
     )
 

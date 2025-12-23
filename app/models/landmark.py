@@ -14,8 +14,8 @@ class Landmark(Document):
     city: str
     zone: Optional[str] = None
     
-    # GeoJSON Location (Mandatory for map features)
-    location: GeoJSONLocation 
+    # GeoJSON Location (Mandatory for map features, optional for backward compatibility)
+    location: Optional[GeoJSONLocation] = None
     # Structure: {"type": "Point", "coordinates": [longitude, latitude]}
     
     # Legacy/Display helpers (optional, can be derived)

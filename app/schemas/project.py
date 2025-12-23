@@ -26,6 +26,7 @@ class ProjectBase(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    landmark_id: Optional[UUID] = None
     launch_year: Optional[int] = None
 
 # Creation by Developer (Status not allowed, defaults to PENDING)
@@ -47,6 +48,7 @@ class ProjectAdminUpdate(ProjectBase):
 class ProjectResponse(ProjectBase):
     id: UUID
     developer_id: UUID
+    landmark_id: Optional[UUID] = None
     slug: str
     status: ProjectStatus
     is_hidden: bool

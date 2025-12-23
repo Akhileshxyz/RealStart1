@@ -142,7 +142,7 @@ app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tag
 app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
 app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/developers", tags=["Admin - Developers"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/admin/users", tags=["Admin - Users"])
-app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
+app.include_router(admin_change_requests.router, prefix=f"{settings.API_V1_STR}/admin/projects/change-requests", tags=["Admin - Projects"])
 app.include_router(admin_subscriptions.router, prefix=f"{settings.API_V1_STR}/admin/subscriptions", tags=["Admin - Subscriptions"])
 app.include_router(admin_dashboard.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin - Dashboard"])
 app.include_router(admin_analytics.router, prefix=f"{settings.API_V1_STR}/admin/analytics", tags=["Admin - Analytics"])

@@ -39,6 +39,7 @@ class Project(Document):
     developer_id: UUID
     city_id: Optional[UUID] = None
     zone_id: Optional[UUID] = None
+    landmark_id: Optional[UUID] = None # Linked Locality
     
     name: str
     slug: Indexed(str, unique=True)

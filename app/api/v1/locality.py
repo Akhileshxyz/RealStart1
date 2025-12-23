@@ -1,13 +1,16 @@
 from typing import Any, List, Dict, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel
 from app.api import deps
 from app.models.landmark import Landmark
+from app.models.review import Review, ReviewEntityType
+from app.models.project import Project, ProjectStatus
 from app.core.config import settings
 from datetime import datetime
 import httpx
 import logging
+from app.utils.cache import cache_public_data
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +28,12 @@ class LocationResolveResponse(BaseModel):
     name: str
     city: str
     message: str
+
+class ReviewCreate(BaseModel):
+    entity_id: UUID
+    rating: float
+    content: str
+    entity_type: ReviewEntityType = ReviewEntityType.LANDMARK
 
 # --- Mappls Helper ---
 async def get_mappls_token():
@@ -147,6 +156,7 @@ async def resolve_location(
 # --- 2. Canonical Details API ---
 
 @router.get("/{landmark_id}", response_model=Any)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
 async def get_locality_details(landmark_id: UUID) -> Any:
     """
     Master API for static locality details.
@@ -154,7 +164,15 @@ async def get_locality_details(landmark_id: UUID) -> Any:
     landmark = await Landmark.get(landmark_id)
     if not landmark:
         raise HTTPException(status_code=404, detail="Landmark not found")
-        
+    
+    # Calculate avg rating
+    reviews = await Review.find(
+        Review.entity_id == landmark_id,
+        Review.entity_type == ReviewEntityType.LANDMARK
+    ).to_list()
+    
+    avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0.0
+    
     return {
         "id": landmark.id,
         "name": landmark.name,
@@ -162,15 +180,16 @@ async def get_locality_details(landmark_id: UUID) -> Any:
         "zone": landmark.zone,
         "description": landmark.description,
         "location": landmark.location,
-        "rating": 4.5, # Mock
-        "review_count": 120, # Mock
+        "rating": round(avg_rating, 1),
+        "review_count": len(reviews),
         "about_text": f"A prime residential area in {landmark.city} with great connectivity."
     }
 
 # --- 3. Sub-APIs ---
 
 @router.get("/transactions", response_model=Any)
-async def get_registry_transactions(landmark_id: UUID) -> Any:
+@cache_public_data()
+async def get_registry_transactions(landmark_id: UUID = Query(...)) -> Any:
     """
     Mock registry transactions.
     """
@@ -184,11 +203,15 @@ async def get_registry_transactions(landmark_id: UUID) -> Any:
     }
 
 @router.get("/price-insights", response_model=Any)
-async def get_price_insights(landmark_id: UUID) -> Any:
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_price_insights(landmark_id: UUID = Query(...)) -> Any:
     """
     Mock price insights.
     """
     landmark = await Landmark.get(landmark_id)
+    if not landmark:
+         raise HTTPException(status_code=404, detail="Landmark not found")
+         
     base_price = landmark.avg_price_per_sqft or 5500
     
     return {
@@ -205,7 +228,8 @@ async def get_price_insights(landmark_id: UUID) -> Any:
     }
 
 @router.get("/trends", response_model=Any)
-async def get_market_trends(landmark_id: UUID) -> Any:
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_market_trends(landmark_id: UUID = Query(...)) -> Any:
     """
     Mock market trends (graphs).
     """
@@ -223,22 +247,174 @@ async def get_market_trends(landmark_id: UUID) -> Any:
         }
     }
 
-@router.get("/societies", response_model=Any)
-async def get_linked_societies(landmark_id: UUID) -> Any:
+# --- Projects & Properties ---
+
+@router.get("/projects", response_model=List[Any])
+@cache_public_data()
+async def get_locality_projects(landmark_id: UUID = Query(...)) -> Any:
     """
-    Fetch linked projects/societies.
+    Fetch projects linked to this locality.
     """
-    # Assuming Project model has logic to link to landmark or simply mock for now
-    # Ideally: await Project.find({"landmark_id": landmark_id}).to_list()
+    projects = await Project.find(
+        Project.landmark_id == landmark_id,
+        Project.status == ProjectStatus.APPROVED
+    ).to_list()
+    return projects
+
+@router.get("/societies", response_model=List[Any])
+@cache_public_data()
+async def get_linked_societies(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Same as projects but maybe filtered by layout type?
+    For now alias to projects.
+    """
+    projects = await Project.find(
+        Project.landmark_id == landmark_id,
+        Project.status == ProjectStatus.APPROVED
+    ).to_list()
+    return projects
+
+@router.get("/properties/buy", response_model=List[Any])
+@cache_public_data(ttl=300) # 5 mins for inventory
+async def get_properties_buy(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Mock property listings (Inventory).
+    """
+    # Assuming inventory logic linked to projects
     return [
-        {"name": "Green Valley", "type": "Layout", "status": "Ready to Move", "min_price": "45L"},
-        {"name": "Prestige Heights", "type": "Apartment", "status": "Under Construction", "min_price": "90L"}
+        {"id": "inv_1", "title": "2 BHK Premium", "price": "85L", "project_name": "Residency 1"},
+        {"id": "inv_2", "title": "3 BHK Luxury", "price": "1.2Cr", "project_name": "Residency 1"},
     ]
+
+@router.get("/properties/rent", response_model=List[Any])
+@cache_public_data(ttl=300)
+async def get_properties_rent(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Mock rental listings.
+    """
+    return []
+
+# --- Reviews ---
+
+@router.post("/reviews", response_model=Any)
+async def create_review(
+    review_in: ReviewCreate,
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Create a review for a locality.
+    """
+    review = Review(
+        entity_id=review_in.entity_id,
+        entity_type=review_in.entity_type,
+        user_id=current_user.id,
+        rating=review_in.rating,
+        content=review_in.content
+    )
+    await review.insert()
+    return review
+
+@router.get("/reviews/locality", response_model=List[Any])
+@cache_public_data()
+async def get_locality_reviews(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Get reviews for a locality.
+    """
+    reviews = await Review.find(
+        Review.entity_id == landmark_id,
+        Review.entity_type == ReviewEntityType.LANDMARK
+    ).sort("-created_at").to_list()
+    return reviews
+
+@router.get("/reviews/ratings-summary", response_model=Any)
+@cache_public_data()
+async def get_rating_summary(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Get rating summary.
+    """
+    reviews = await Review.find(
+        Review.entity_id == landmark_id,
+        Review.entity_type == ReviewEntityType.LANDMARK
+    ).to_list()
+    
+    total = len(reviews)
+    if total == 0:
+        return {"avg_rating": 0, "total_reviews": 0, "distribution": {}}
+        
+    avg = sum(r.rating for r in reviews) / total
+    return {
+        "avg_rating": round(avg, 1),
+        "total_reviews": total,
+        "distribution": {
+            "5": len([r for r in reviews if r.rating == 5]),
+            "4": len([r for r in reviews if r.rating == 4]),
+            "3": len([r for r in reviews if r.rating == 3]),
+            "2": len([r for r in reviews if r.rating == 2]),
+            "1": len([r for r in reviews if r.rating == 1]),
+        }
+    }
+
+# --- Nearby Areas (Geospatial) ---
+
+@router.get("/nearby-areas", response_model=List[Any])
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_nearby_areas(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Get nearby landmarks using geospatial query.
+    """
+    landmark = await Landmark.get(landmark_id)
+    if not landmark or not landmark.location:
+        return []
+        
+    # Find landmarks within 5km
+    nearby = await Landmark.find({
+        "location": {
+            "$near": {
+                "$geometry": landmark.location.model_dump(),
+                "$maxDistance": 5000 
+            }
+        },
+        "_id": {"$ne": landmark.id} # Exclude self
+    }).limit(10).to_list()
+    
+    return [
+        {"id": n.id, "name": n.name, "distance_meters": "Calculated by Aggregation in real app"} 
+        for n in nearby
+    ]
+
+# --- Demand & Supply ---
+
+@router.get("/demand/overview", response_model=Any)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_demand_overview(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Mock Demand Overview.
+    """
+    return {
+        "search_volume": "High",
+        "rank_in_city": 5,
+        "most_searched_config": "3 BHK"
+    }
+
+@router.get("/supply/overview", response_model=Any)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_supply_overview(landmark_id: UUID = Query(...)) -> Any:
+    """
+    Mock Supply Overview.
+    """
+    # Could imply count of projects
+    projects_count = await Project.find(Project.landmark_id == landmark_id).count()
+    return {
+        "total_projects": projects_count,
+        "inventory_status": "Moving Fast",
+        "new_launches": 2
+    }
 
 # --- 4. Combined Dashboard API ---
 
 @router.get("/graphs/dashboard", response_model=Any)
-async def get_locality_graph_dashboard(landmark_id: UUID) -> Any:
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_locality_graph_dashboard(landmark_id: UUID = Query(...)) -> Any:
     """
     Combined API for reducing frontend calls.
     Aggregates Price Trends, Demand/Supply, and BHK Ratios.

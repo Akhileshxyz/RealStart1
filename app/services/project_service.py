@@ -170,8 +170,13 @@ async def get_all_projects_for_geospatial(use_cache: bool = True):
     if use_cache:
         cached_projects = await redis_client.get(cache_key)
         if cached_projects:
-            logger.debug("Geospatial projects cache HIT")
-            return [Project(**p) for p in cached_projects]
+            try:
+                logger.debug("Geospatial projects cache HIT")
+                return [Project(**p) for p in cached_projects]
+            except Exception as e:
+                logger.warning(f"Failed to deserialize project cache: {e}. Falling back to DB.")
+                # Fallthrough to DB query
+
 
     # Cache miss - query database (expensive)
     logger.debug("Geospatial projects cache MISS - fetching all projects")

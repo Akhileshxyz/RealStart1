@@ -13,7 +13,8 @@ This module provides:
 import json
 import logging
 from typing import Any, Optional, Union
-from datetime import timedelta
+from datetime import timedelta, datetime
+from uuid import UUID
 
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
@@ -87,9 +88,19 @@ class RedisClient:
 
     def _serialize(self, value: Any) -> str:
         """Serialize value to JSON string"""
-        if isinstance(value, (str, int, float, bool)):
+        if isinstance(value, (str, int, float, bool)) and value is not None:
             return json.dumps(value)
-        return json.dumps(value, default=str)
+            
+        def default_serializer(obj):
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            if hasattr(obj, "dict"):
+                return obj.dict()
+            if isinstance(obj, (datetime, UUID)):
+                return str(obj)
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+        return json.dumps(value, default=default_serializer)
 
     def _deserialize(self, value: Optional[str]) -> Any:
         """Deserialize JSON string to Python object"""
