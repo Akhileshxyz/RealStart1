@@ -22,8 +22,8 @@ __all__ = [
     "admin_analytics",
     "admin_ads",
     "admin_team",
-    "admin_team",
     "admin_landmarks",
     "admin_videos",
-    "locality"
+    "locality",
+    "developer_uploads"
 ]

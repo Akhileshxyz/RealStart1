@@ -2,7 +2,8 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.1
 motor==3.6.0
 beanie==1.27.0
-python-jose[cryptography]==3.3.0
+PyJWT==2.8.0
+cryptography==46.0.3
 passlib[argon2]==1.7.4
 python-multipart==0.0.20
 pydantic-settings==2.7.0

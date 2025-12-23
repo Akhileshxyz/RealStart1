@@ -8,7 +8,7 @@ from app.api import deps
 from app.core import security
 from app.models.user import User, UserRole
 from app.models.developer import Developer
-from app.schemas.auth import Token, UserCreate, UserResponse
+from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse
 from app.schemas.developer import DeveloperCreate, DeveloperResponse
 
 router = APIRouter()
@@ -38,14 +38,15 @@ async def register_public_user(user_in: UserCreate) -> Any:
     await user.insert()
     return user
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=TokenWithUser)
 @limiter.limit("5/minute")
 async def login_access_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2 compatible token login, get an access token for future requests.
+    Returns access token along with user profile information including role.
     """
 
 
@@ -68,6 +69,13 @@ async def login_access_token(
     return {
         "access_token": security.create_access_token(user.id),
         "token_type": "bearer",
+        "user": UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active
+        )
     }
 
 @router.get("/me", response_model=UserResponse)
