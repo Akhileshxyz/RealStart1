@@ -17,6 +17,10 @@ from app.models.review import Review
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription
 from app.models.lawyer import LawyerProfile, LawyerLead, LawyerSubscription
 import app.models.legal_call as legal_call_module
+from app.models.property_transaction import PropertyTransaction
+from app.models.society import Society
+from app.models.locality_review import LocalityReview
+from app.models.price_history import PriceHistory
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -44,7 +48,11 @@ async def init_db():
             Review,
             LawyerProfile,
             LawyerLead,
-            LawyerSubscription
+            LawyerSubscription,
+            PropertyTransaction,
+            Society,
+            LocalityReview,
+            PriceHistory
         ]
     )
 
