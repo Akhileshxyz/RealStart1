@@ -15,6 +15,7 @@ from app.models.video import Video
 from app.models.team import DeveloperTeamMember, StaffTask, SharedClient
 from app.models.review import Review
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription
+from app.models.lawyer import LawyerProfile, LawyerLead, LawyerSubscription
 import app.models.legal_call as legal_call_module
 
 async def init_db():
@@ -40,7 +41,10 @@ async def init_db():
             legal_call_module.LegalCallRequest,
             Ad,
             Video,
-            Review
+            Review,
+            LawyerProfile,
+            LawyerLead,
+            LawyerSubscription
         ]
     )
 

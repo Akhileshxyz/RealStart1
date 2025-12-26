@@ -33,6 +33,7 @@ class User(Document):
     
     # Optional Profile Fields can be added here or in separate collections
     # e.g., lawyer_profile_id: Optional[UUID] = None
+    lawyer_profile_id: Optional[UUID] = None # Links User to LawyerProfile entity
     developer_id: Optional[UUID] = None # Links User to Developer entity
     
     # Demographics
