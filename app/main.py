@@ -152,8 +152,6 @@ app.include_router(admin_team.router, prefix=f"{settings.API_V1_STR}/admin/team"
 app.include_router(admin_landmarks.router, prefix=f"{settings.API_V1_STR}/admin/landmarks", tags=["Admin - Landmarks"])
 app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
 
-app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
-
 # 4. Locality Intelligence (Public/Auth optional depending on business logic)
 # Keeping strict auth validation inside endpoints if needed, generic prefix here.
 app.include_router(locality.router, prefix=f"{settings.API_V1_STR}/locality", tags=["Locality"])
