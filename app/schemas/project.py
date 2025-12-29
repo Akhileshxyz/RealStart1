@@ -17,6 +17,9 @@ class LegalDocumentResponse(BaseModel):
     lawyer_notes: Optional[str] = None
     verified_at: Optional[datetime] = None
 
+    class Config:
+        from_attributes = True
+
 # Shared Properties
 class ProjectBase(BaseModel):
     name: Optional[str] = None
