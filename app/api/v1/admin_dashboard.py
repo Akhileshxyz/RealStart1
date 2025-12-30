@@ -76,7 +76,7 @@ async def get_admin_dashboard_stats(
         "projects": {
             "total": total_projects,
             "active": active_projects,
-            "pending_approval": pending_approvals
+            "pending_approval": pending_approval_count
         },
         "users": {
             "total": total_users,
