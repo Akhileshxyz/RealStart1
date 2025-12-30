@@ -22,51 +22,59 @@ async def list_all_projects_admin(
     """
     List all projects. Filter by status.
     """
-    query = {}
-    if status:
-        query = {"status": status}
-    
-    if query:
-        projects = await Project.find(query).skip(skip).limit(limit).to_list()
-    else:
-        projects = await Project.find_all().skip(skip).limit(limit).to_list()
+    import traceback
+    try:
+        query = {}
+        if status:
+            query = {"status": status}
         
-    # --- Enhancement: Populate Owner & Subscription Details ---
-    developer_ids = list(set([p.developer_id for p in projects if p.developer_id]))
-    if developer_ids:
-        # Fetch Developers
-        developers = await User.find({"id": {"$in": developer_ids}}).to_list()
-        dev_map = {u.id: u for u in developers}
-        
-        # Fetch Active/Latest Subscriptions
-        # Optimization: Just fetch all subs for these devs. If many, might need optimization.
-        subscriptions = await DeveloperSubscription.find(
-            {"developer_id": {"$in": developer_ids}, "status": SubscriptionStatus.ACTIVE}
-        ).to_list()
-        sub_map = {s.developer_id: s for s in subscriptions}
-        
-        # Populate Response
-        enhanced_projects = []
-        for p in projects:
-            p_resp = ProjectResponse.model_validate(p)
+        if query:
+            projects = await Project.find(query).skip(skip).limit(limit).to_list()
+        else:
+            projects = await Project.find_all().skip(skip).limit(limit).to_list()
             
-            # Owner Info
-            if p.developer_id and p.developer_id in dev_map:
-                dev = dev_map[p.developer_id]
-                p_resp.owner_name = dev.full_name
-                p_resp.owner_email = dev.email
-                p_resp.owner_phone = dev.phone
+        # --- Enhancement: Populate Owner & Subscription Details ---
+        developer_ids = list(set([p.developer_id for p in projects if p.developer_id]))
+        if developer_ids:
+            # Fetch Developers
+            # FIX: Use In operator with Beanie syntax or _id query
+            # Using raw query with _id for safety
+            developers = await User.find({"_id": {"$in": developer_ids}}).to_list()
+            dev_map = {u.id: u for u in developers}
+            
+            # Fetch Active/Latest Subscriptions
+            # Optimization: Just fetch all subs for these devs. If many, might need optimization.
+            subscriptions = await DeveloperSubscription.find(
+                {"developer_id": {"$in": developer_ids}, "status": SubscriptionStatus.ACTIVE}
+            ).to_list()
+            sub_map = {s.developer_id: s for s in subscriptions}
+            
+            # Populate Response
+            enhanced_projects = []
+            for p in projects:
+                p_resp = ProjectResponse.model_validate(p)
                 
-            # Subscription Info
-            if p.developer_id and p.developer_id in sub_map:
-                sub = sub_map[p.developer_id]
-                p_resp.subscription_end_date = sub.end_date
-                # p_resp.subscription_plan_name = ... (Would need plan fetch)
+                # Owner Info
+                if p.developer_id and p.developer_id in dev_map:
+                    dev = dev_map[p.developer_id]
+                    p_resp.owner_name = dev.full_name
+                    p_resp.owner_email = dev.email
+                    p_resp.owner_phone = dev.phone
+                    
+                # Subscription Info
+                if p.developer_id and p.developer_id in sub_map:
+                    sub = sub_map[p.developer_id]
+                    p_resp.subscription_end_date = sub.end_date
+                    # p_resp.subscription_plan_name = ... (Would need plan fetch)
+                
+                enhanced_projects.append(p_resp)
+            return enhanced_projects
             
-            enhanced_projects.append(p_resp)
-        return enhanced_projects
-        
-    return projects
+        return projects
+    except Exception as e:
+        with open("c:\\laragon\\www\\realstart-be\\logs\\debug_error.log", "w") as f:
+            f.write(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.get("/{project_id}/details", response_model=ProjectResponse)
 async def get_project_details_admin(
