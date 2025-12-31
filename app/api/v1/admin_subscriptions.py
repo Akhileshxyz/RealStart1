@@ -43,19 +43,22 @@ async def list_plans(
     plans = await SubscriptionPlan.find_all().to_list()
     return plans
 
-@router.get("/subscriptions", response_model=List[DetailedSubscriptionResponse])
+@router.get("/subscriptions")
 async def list_developer_subscriptions(
     status: Optional[SubscriptionStatus] = Query(None, description="Filter by status"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return (1-100)"),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get detailed subscription information including:
+    Get detailed subscription information with pagination:
     - Developer name and email
     - Plan name and price
     - Start date, end date, and days left
     - Status (ACTIVE, EXPIRED, CANCELLED, PENDING)
     - Auto renewal setting
     
+    Returns paginated results with total count.
     Optional filter by status.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
@@ -66,8 +69,11 @@ async def list_developer_subscriptions(
     if status:
         query["status"] = status
     
-    # Get subscriptions
-    subs = await DeveloperSubscription.find(query).to_list() if query else await DeveloperSubscription.find_all().to_list()
+    # Get total count
+    total_count = await DeveloperSubscription.find(query).count() if query else await DeveloperSubscription.count()
+    
+    # Get subscriptions with pagination
+    subs = await DeveloperSubscription.find(query).skip(skip).limit(limit).to_list() if query else await DeveloperSubscription.find_all().skip(skip).limit(limit).to_list()
     
     # Get all plans
     plans = await SubscriptionPlan.find_all().to_list()
@@ -108,7 +114,12 @@ async def list_developer_subscriptions(
     # Sort by end_date (most recent first)
     results.sort(key=lambda x: x.end_date, reverse=True)
     
-    return results
+    return {
+        "total": total_count,
+        "skip": skip,
+        "limit": limit,
+        "data": results
+    }
 
 # --- Automation & Analytics ---
 
