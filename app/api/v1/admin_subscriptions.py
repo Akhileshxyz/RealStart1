@@ -43,6 +43,80 @@ async def list_plans(
     plans = await SubscriptionPlan.find_all().to_list()
     return plans
 
+@router.put("/plans/{plan_id}", response_model=SubscriptionPlanResponse)
+async def update_plan(
+    plan_id: str,
+    plan_update: SubscriptionPlanCreate,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update an existing subscription plan.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Find the plan
+    from uuid import UUID
+    try:
+        plan_uuid = UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan ID format")
+    
+    plan = await SubscriptionPlan.get(plan_uuid)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Update plan fields
+    plan.name = plan_update.name
+    plan.duration_days = plan_update.duration_days
+    plan.price = plan_update.price
+    plan.features = plan_update.features
+    plan.is_active = plan_update.is_active
+    
+    await plan.save()
+    return plan
+
+@router.delete("/plans/{plan_id}")
+async def delete_plan(
+    plan_id: str,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Delete (deactivate) a subscription plan.
+    This sets is_active to False instead of actually deleting the plan.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Find the plan
+    from uuid import UUID
+    try:
+        plan_uuid = UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan ID format")
+    
+    plan = await SubscriptionPlan.get(plan_uuid)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Check if any active subscriptions are using this plan
+    active_subs_count = await DeveloperSubscription.find({
+        "plan_id": plan_uuid,
+        "status": SubscriptionStatus.ACTIVE
+    }).count()
+    
+    if active_subs_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete plan. {active_subs_count} active subscription(s) are using this plan."
+        )
+    
+    # Soft delete by setting is_active to False
+    plan.is_active = False
+    await plan.save()
+    
+    return {"message": "Plan deactivated successfully", "plan_id": str(plan_id)}
+
 @router.get("/subscriptions")
 async def list_developer_subscriptions(
     status: Optional[SubscriptionStatus] = Query(None, description="Filter by status"),
@@ -121,88 +195,7 @@ async def list_developer_subscriptions(
         "data": results
     }
 
-# --- Automation & Analytics ---
-
-@router.get("/notifications/expiry", response_model=List[Any])
-async def get_expiring_subscriptions(
-    days: int = 7,
-    current_user: User = Depends(deps.get_current_user),
-) -> Any:
-    """
-    Get list of subscriptions expiring in the next N days.
-    Useful for auto-renewal notifications.
-    """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-        
-    now = datetime.now(timezone.utc)
-    target_date = now + timedelta(days=days)
-    
-    # Mongo query to find active subs ending between now and target_date
-    subs = await DeveloperSubscription.find({
-        "status": SubscriptionStatus.ACTIVE,
-        "end_date": {"$gt": now, "$lte": target_date}
-    }).to_list()
-    
-    # Hydrate with developer details
-    results = []
-    for sub in subs:
-        dev_user = await User.find_one({"developer_id": sub.developer_id})
-        plan = await SubscriptionPlan.get(sub.plan_id)
-        results.append({
-            "subscription_id": sub.id,
-            "developer_name": dev_user.full_name if dev_user else "Unknown",
-            "developer_email": dev_user.email if dev_user else "Unknown",
-            "plan_name": plan.name if plan else "Unknown",
-            "end_date": sub.end_date,
-            "days_left": (sub.end_date.replace(tzinfo=timezone.utc) - now).days
-        })
-        
-    return results
-
-@router.get("/analytics/revenue", response_model=Dict[str, Any])
-async def get_subscription_revenue(
-    current_user: User = Depends(deps.get_current_user),
-) -> Any:
-    """
-    Calculate total revenue and churn metrics.
-    """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    all_subs = await DeveloperSubscription.find_all().to_list()
-    
-    # Prefetch active plans for price
-    plans = await SubscriptionPlan.find_all().to_list()
-    plan_price_map = {p.id: p.price for p in plans}
-    
-    total_revenue = 0.0
-    active_count = 0
-    expired_count = 0
-    cancelled_count = 0
-    
-    for sub in all_subs:
-        price = plan_price_map.get(sub.plan_id, 0.0)
-        # Assuming paid if status is ACTIVE/EXPIRED (simplification)
-        if sub.status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRED]:
-             total_revenue += price
-             
-        if sub.status == SubscriptionStatus.ACTIVE:
-            active_count += 1
-        elif sub.status == SubscriptionStatus.EXPIRED:
-            expired_count += 1
-        elif sub.status == SubscriptionStatus.CANCELLED:
-            cancelled_count += 1
-            
-    return {
-        "total_revenue": total_revenue,
-        "active_subscriptions": active_count,
-        "expired_subscriptions": expired_count,
-        "cancelled_subscriptions": cancelled_count,
-        "churn_rate": (cancelled_count / (active_count + cancelled_count)) * 100 if (active_count + cancelled_count) > 0 else 0
-    }
-
-# --- New Enhanced Admin APIs ---
+# --- Enhanced Admin APIs ---
 
 @router.get("/stats", response_model=SubscriptionStatsResponse)
 async def get_subscription_stats(
@@ -270,3 +263,4 @@ async def get_subscription_stats(
         total_revenue=total_revenue,
         total_subscriptions=len(all_subs)
     )
+
