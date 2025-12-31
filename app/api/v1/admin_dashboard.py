@@ -32,10 +32,10 @@ async def get_admin_dashboard_stats(
         # Fetch developer name if needed, or just use project name
         dev = await User.find_one({"developer_id": p.developer_id})
         pending_approvals_list.append({
-             "project_id": p.id,
+             "project_id": str(p.id),  # Convert UUID to string
              "project_name": p.name,
              "developer_name": dev.full_name if dev else "Unknown",
-             "submitted_at": p.created_at
+             "submitted_at": p.created_at.isoformat()  # ISO format for datetime
         })
     
     # 2. User Stats
@@ -53,20 +53,26 @@ async def get_admin_dashboard_stats(
     
     # Expiring Subscriptions (Next 7 days)
     expiry_threshold = now + timedelta(days=7)
-    expiring_subs = await DeveloperSubscription.find({
+    expiring_subs_count = await DeveloperSubscription.find({
         "status": SubscriptionStatus.ACTIVE,
         "end_date": {"$gt": now, "$lte": expiry_threshold}
-    }).to_list()
+    }).count()
     
+    # Build important alerts
     important_alerts = []
-    for sub in expiring_subs:
-        dev = await User.find_one({"developer_id": sub.developer_id})
-        days_left = (sub.end_date.replace(tzinfo=timezone.utc) - now).days
+    
+    # Alert for expiring subscriptions
+    if expiring_subs_count > 0:
         important_alerts.append({
-            "type": "subscription_expiry",
-            "message": f"{dev.full_name if dev else 'Unknown'} subscription expires in {days_left} days",
-            "priority": "high" if days_left < 3 else "medium",
-            "action_required": True
+            "title": "Subscription Expiring Soon",
+            "message": f"{expiring_subs_count} subscription{'s' if expiring_subs_count != 1 else ''} expiring in next 7 days"
+        })
+    
+    # Alert for pending approvals
+    if pending_approval_count > 0:
+        important_alerts.append({
+            "title": "High Pending Approvals" if pending_approval_count > 10 else "Pending Approvals",
+            "message": f"{pending_approval_count} project{'s' if pending_approval_count != 1 else ''} awaiting review"
         })
     
     # 4. Engagement Stats
@@ -90,7 +96,7 @@ async def get_admin_dashboard_stats(
             "total_visits_booked": total_visits_booked
         },
         "action_items": {
-            "pending_approvals": pending_approvals_list[:5], # Top 5
+            "pending_approvals": pending_approvals_list[:5], # Top 5 most recent
             "total_pending_count": pending_approval_count,
             "important_alerts": important_alerts
         }

@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 
 class GeoJSONLocation(BaseModel):
     type: str = "Point"
-    coordinates: List[float] # [longitude, latitude]
+    coordinates: Optional[List[float]] = None  # [longitude, latitude]
+    # Legacy format support
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
