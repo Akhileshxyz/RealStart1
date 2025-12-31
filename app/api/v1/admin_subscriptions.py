@@ -264,3 +264,134 @@ async def get_subscription_stats(
         total_subscriptions=len(all_subs)
     )
 
+@router.post("/send-renewal-reminders")
+async def send_renewal_reminders(
+    days_threshold: int = Query(7, ge=1, le=30, description="Send reminders for subscriptions expiring within N days"),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Send renewal reminder emails to developers whose subscriptions are expiring soon.
+    
+    Args:
+        days_threshold: Number of days before expiry to send reminders (default: 7, max: 30)
+    
+    Returns:
+        Summary of sent reminders including success/failure counts
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    from app.services.email_service import email_service
+    
+    now = datetime.now(timezone.utc)
+    threshold_date = now + timedelta(days=days_threshold)
+    
+    # Find active subscriptions expiring within the threshold
+    expiring_subs = await DeveloperSubscription.find({
+        "status": SubscriptionStatus.ACTIVE,
+        "end_date": {"$gt": now, "$lte": threshold_date}
+    }).to_list()
+    
+    if not expiring_subs:
+        return {
+            "message": "No subscriptions found expiring within the specified period",
+            "days_threshold": days_threshold,
+            "total_found": 0,
+            "emails_sent": 0,
+            "emails_failed": 0,
+            "reminders": []
+        }
+    
+    # Get all plans for pricing info
+    plans = await SubscriptionPlan.find_all().to_list()
+    plan_map = {p.id: p for p in plans}
+    
+    sent_count = 0
+    failed_count = 0
+    reminders = []
+    
+    for sub in expiring_subs:
+        try:
+            # Get developer and user info
+            developer = await Developer.get(sub.developer_id)
+            user = await User.find_one({"developer_id": sub.developer_id})
+            plan = plan_map.get(sub.plan_id)
+            
+            if not user or not user.email:
+                failed_count += 1
+                reminders.append({
+                    "developer_id": str(sub.developer_id),
+                    "developer_name": developer.name if developer else "Unknown",
+                    "status": "failed",
+                    "reason": "No email address found"
+                })
+                continue
+            
+            if not plan:
+                failed_count += 1
+                reminders.append({
+                    "developer_id": str(sub.developer_id),
+                    "developer_name": developer.name if developer else "Unknown",
+                    "status": "failed",
+                    "reason": "Plan not found"
+                })
+                continue
+            
+            # Calculate days left
+            end_date_aware = sub.end_date.replace(tzinfo=timezone.utc) if sub.end_date.tzinfo is None else sub.end_date
+            days_left = (end_date_aware - now).days
+            
+            # Get email template
+            html_content, text_content = email_service.get_renewal_reminder_template(
+                developer_name=developer.name if developer else user.full_name,
+                plan_name=plan.name,
+                end_date=sub.end_date.strftime("%B %d, %Y"),
+                days_left=days_left,
+                plan_price=plan.price
+            )
+            
+            # Send email
+            success = await email_service.send_email(
+                to_email=user.email,
+                subject=f"Subscription Renewal Reminder - {days_left} Days Left",
+                html_content=html_content,
+                text_content=text_content
+            )
+            
+            if success:
+                sent_count += 1
+                reminders.append({
+                    "developer_id": str(sub.developer_id),
+                    "developer_name": developer.name if developer else user.full_name,
+                    "email": user.email,
+                    "plan_name": plan.name,
+                    "days_left": days_left,
+                    "end_date": sub.end_date.isoformat(),
+                    "status": "sent"
+                })
+            else:
+                failed_count += 1
+                reminders.append({
+                    "developer_id": str(sub.developer_id),
+                    "developer_name": developer.name if developer else user.full_name,
+                    "email": user.email,
+                    "status": "failed",
+                    "reason": "Email sending failed"
+                })
+                
+        except Exception as e:
+            failed_count += 1
+            reminders.append({
+                "developer_id": str(sub.developer_id),
+                "status": "failed",
+                "reason": str(e)
+            })
+    
+    return {
+        "message": f"Renewal reminders processed for subscriptions expiring within {days_threshold} days",
+        "days_threshold": days_threshold,
+        "total_found": len(expiring_subs),
+        "emails_sent": sent_count,
+        "emails_failed": failed_count,
+        "reminders": reminders
+    }
