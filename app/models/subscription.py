@@ -40,6 +40,9 @@ class DeveloperSubscription(Document):
     razorpay_payment_id: Optional[str] = None
     razorpay_signature: Optional[str] = None
     
+    # Auto Renewal
+    auto_renewal: bool = False
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -51,3 +51,29 @@ class SubscriptionResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+# Admin Subscription Stats
+class SubscriptionStatsResponse(BaseModel):
+    total_active: int
+    expiring_soon: int  # Within 7 days
+    expired: int
+    monthly_revenue: float
+    total_revenue: float
+    total_subscriptions: int
+
+# Detailed Subscription Info for Admin
+class DetailedSubscriptionResponse(BaseModel):
+    id: UUID
+    developer_name: str
+    developer_email: Optional[str] = None
+    plan_name: str
+    plan_price: float
+    start_date: datetime
+    end_date: datetime
+    days_left: int
+    status: SubscriptionStatus
+    auto_renewal: bool = False  # Can be added to model later
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
