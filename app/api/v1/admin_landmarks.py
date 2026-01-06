@@ -1,27 +1,45 @@
 from typing import Any, List, Dict
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from app.api import deps
 from app.models.user import User
 from app.models.landmark import Landmark
+from app.schemas.landmark import PaginatedLandmarkResponse
 from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Landmark])
+@router.get("/", response_model=PaginatedLandmarkResponse)
 async def list_all_landmarks(
     city: str = None,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     List all landmarks, optionally filtered by city.
+    Includes unique cities for filtering in the response.
     """
     query = {}
     if city:
         query["city"] = city
         
-    return await Landmark.find(query).limit(limit).to_list()
+    # Get total count (filtered)
+    total_count = await Landmark.find(query).count()
+    
+    # Get paginated data
+    landmarks = await Landmark.find(query).skip(skip).limit(limit).to_list()
+    
+    # Get unique cities from ALL records (unfiltered for dropdown usage)
+    unique_cities = await Landmark.distinct("city")
+    
+    return {
+        "total": total_count,
+        "skip": skip,
+        "limit": limit,
+        "data": landmarks,
+        "unique_cities": sorted(unique_cities) if unique_cities else []
+    }
 
 @router.post("/", response_model=Landmark)
 async def create_landmark(

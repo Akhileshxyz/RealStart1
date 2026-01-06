@@ -77,3 +77,10 @@ class LandmarkResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PaginatedLandmarkResponse(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    data: List[LandmarkResponse]
+    unique_cities: List[str]

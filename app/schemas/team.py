@@ -27,3 +27,33 @@ class TeamMemberResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class StaffTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    priority: Optional[str] = "MEDIUM" # LOW, MEDIUM, HIGH, URGENT
+    due_date: Optional[datetime] = None
+    related_client_id: Optional[UUID] = None
+
+class StaffTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None # PENDING, IN_PROGRESS, COMPLETED
+    priority: Optional[str] = None
+    due_date: Optional[datetime] = None
+
+class StaffTaskResponse(BaseModel):
+    id: UUID
+    assigned_to: UUID
+    assigned_by: UUID
+    title: str
+    description: Optional[str] = None
+    status: str
+    priority: str
+    due_date: Optional[datetime] = None
+    related_client_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

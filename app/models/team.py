@@ -23,6 +23,12 @@ class TaskStatus(str, Enum):
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
 
+class TaskPriority(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+
 class StaffTask(Document):
     id: UUID = Field(default_factory=uuid4)
     assigned_to: UUID # User ID of staff
@@ -30,6 +36,7 @@ class StaffTask(Document):
     title: str
     description: Optional[str] = None
     status: TaskStatus = TaskStatus.PENDING
+    priority: TaskPriority = TaskPriority.MEDIUM
     due_date: Optional[datetime] = None
     
     related_client_id: Optional[UUID] = None # Optional link to a client/developer

@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User
 from app.models.ad import Ad, AdType
+from app.schemas.ad import AdCreate, AdUpdate, AdResponse
 from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/internal", response_model=List[Ad])
+@router.get("/internal", response_model=List[AdResponse])
 async def list_internal_ads(
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
@@ -17,18 +18,16 @@ async def list_internal_ads(
     """
     return await Ad.find({"ad_type": AdType.INTERNAL}).to_list()
 
-@router.post("/internal", response_model=Ad)
+@router.post("/internal", response_model=AdResponse)
 async def create_internal_ad(
-    ad_data: Dict[str, Any] = Body(...),
+    ad_in: AdCreate,
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Create a new internal ad campaign.
     """
-    # Simply mapping dict to model for MVP.
-    # In production use Pydantic schemas.
     ad = Ad(
-        **ad_data,
+        **ad_in.model_dump(),
         ad_type=AdType.INTERNAL,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
@@ -36,10 +35,10 @@ async def create_internal_ad(
     await ad.save()
     return ad
 
-@router.put("/internal/{ad_id}", response_model=Ad)
+@router.put("/internal/{ad_id}", response_model=AdResponse)
 async def update_internal_ad(
     ad_id: UUID,
-    ad_data: Dict[str, Any] = Body(...),
+    ad_in: AdUpdate,
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
@@ -49,13 +48,10 @@ async def update_internal_ad(
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
     
-    # Update fields
-    for k, v in ad_data.items():
-        if hasattr(ad, k):
-            setattr(ad, k, v)
-            
-    ad.updated_at = datetime.utcnow()
-    await ad.save()
+    update_data = ad_in.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await ad.set(update_data)
     return ad
 
 @router.delete("/internal/{ad_id}")

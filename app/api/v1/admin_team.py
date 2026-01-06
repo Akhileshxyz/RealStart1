@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.team import StaffTask, TaskStatus, SharedClient
-from app.schemas.auth import UserCreate # Correct import logic
-from app.schemas.user import UserUpdate # Assuming this is in user.py
+from app.schemas.auth import UserCreate 
+from app.schemas.user import UserUpdate
+from app.schemas.team import StaffTaskCreate, StaffTaskResponse, StaffTaskUpdate
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -80,10 +81,10 @@ async def remove_team_member(
 
 # --- Task Assignment ---
 
-@router.post("/{member_id}/tasks", response_model=StaffTask)
+@router.post("/{member_id}/tasks", response_model=StaffTaskResponse)
 async def assign_task(
     member_id: UUID,
-    task_in: Dict[str, Any] = Body(...),
+    task_in: StaffTaskCreate,
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
@@ -96,14 +97,14 @@ async def assign_task(
     task = StaffTask(
         assigned_to=member_id,
         assigned_by=current_user.id,
-        **task_in,
+        **task_in.model_dump(),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
     await task.save()
     return task
 
-@router.get("/{member_id}/tasks", response_model=List[StaffTask])
+@router.get("/{member_id}/tasks", response_model=List[StaffTaskResponse])
 async def view_assigned_tasks(
     member_id: UUID,
     current_user: User = Depends(deps.get_current_active_admin),
@@ -111,9 +112,42 @@ async def view_assigned_tasks(
     """
     View tasks assigned to a team member.
     """
-    tasks = await StaffTask.find({"assigned_to": member_id}).to_list()
-    tasks = await StaffTask.find({"assigned_to": member_id}).to_list()
+    tasks = await StaffTask.find({"assigned_to": member_id}).sort("-created_at").to_list()
     return tasks
+
+@router.patch("/tasks/{task_id}", response_model=StaffTaskResponse)
+async def update_task_status(
+    task_id: UUID,
+    task_in: StaffTaskUpdate,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Update a task status or details.
+    """
+    task = await StaffTask.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    update_data = task_in.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await task.set(update_data)
+    return task
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(
+    task_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Delete a task.
+    """
+    task = await StaffTask.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    await task.delete()
+    return {"message": "Task deleted successfully"}
 
 # --- Data Sharing ---
 

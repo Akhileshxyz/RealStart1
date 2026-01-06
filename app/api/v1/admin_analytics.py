@@ -1,5 +1,5 @@
 from typing import Any, List, Dict
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.landmark import Landmark
@@ -15,6 +15,7 @@ router = APIRouter()
 
 @router.get("/comprehensive", response_model=Any)
 async def get_comprehensive_analytics(
+    days: int = Query(30, ge=1, le=365, description="Number of days to filter analytics (1-365)"),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
@@ -26,45 +27,60 @@ async def get_comprehensive_analytics(
     - City analytics (top 7 cities)
     - Conversion funnel (5 stages)
     - Landmark performance (top 5)
+    
+    Query params:
+    - days: Filter analytics for last N days (default: 30, max: 365)
     """
     now = datetime.now(timezone.utc)
-    last_month = now - timedelta(days=30)
+    comparison_date = now - timedelta(days=days)
+    period_start = comparison_date
     
     # === STATS ===
-    # Total users
-    total_users = await User.find({"role": UserRole.BUYER}).count()
-    last_month_users = await User.find({
+    # Total users (filtered by date range)
+    total_users = await User.find({
         "role": UserRole.BUYER,
-        "created_at": {"$lt": last_month}
+        "created_at": {"$gte": period_start, "$lte": now}
     }).count()
-    users_change = ((total_users - last_month_users) / last_month_users * 100) if last_month_users > 0 else 0
+    comparison_users = await User.find({
+        "role": UserRole.BUYER,
+        "created_at": {"$lt": comparison_date}
+    }).count()
+    users_change = ((total_users - comparison_users) / comparison_users * 100) if comparison_users > 0 else 0
     
-    # Active projects
-    active_projects = await Project.find({"status": ProjectStatus.APPROVED}).count()
-    last_month_projects = await Project.find({
+    # Active projects (filtered by date range)
+    active_projects = await Project.find({
         "status": ProjectStatus.APPROVED,
-        "created_at": {"$lt": last_month}
+        "created_at": {"$gte": period_start, "$lte": now}
     }).count()
-    projects_change = ((active_projects - last_month_projects) / last_month_projects * 100) if last_month_projects > 0 else 0
+    comparison_projects = await Project.find({
+        "status": ProjectStatus.APPROVED,
+        "created_at": {"$lt": comparison_date}
+    }).count()
+    projects_change = ((active_projects - comparison_projects) / comparison_projects * 100) if comparison_projects > 0 else 0
     
-    # Revenue
-    active_subs = await DeveloperSubscription.find({"status": SubscriptionStatus.ACTIVE}).to_list()
+    # Revenue (all active subscriptions, compared to active subscriptions before comparison date)
+    all_active_subs = await DeveloperSubscription.find({"status": SubscriptionStatus.ACTIVE}).to_list()
     plans = await SubscriptionPlan.find_all().to_list()
     plan_map = {p.id: p.price for p in plans}
     
-    revenue = sum(plan_map.get(sub.plan_id, 0) for sub in active_subs)
-    # Make created_at timezone-aware for comparison
-    last_month_subs = [
-        s for s in active_subs 
-        if (s.created_at.replace(tzinfo=timezone.utc) if s.created_at.tzinfo is None else s.created_at) < last_month
-    ]
-    last_month_revenue = sum(plan_map.get(sub.plan_id, 0) for sub in last_month_subs)
-    revenue_change = ((revenue - last_month_revenue) / last_month_revenue * 100) if last_month_revenue > 0 else 0
+    # Current revenue: all active subscriptions
+    revenue = sum(plan_map.get(sub.plan_id, 0) for sub in all_active_subs)
     
-    # Page views (using project leads as proxy)
-    page_views = await ProjectLead.find_all().count()
-    last_month_views = await ProjectLead.find({"created_at": {"$lt": last_month}}).count()
-    views_change = ((page_views - last_month_views) / last_month_views * 100) if last_month_views > 0 else 0
+    # Comparison revenue: subscriptions that were active before comparison date
+    # (subscriptions created before comparison date that are still active)
+    comparison_subs = [
+        s for s in all_active_subs
+        if (s.created_at.replace(tzinfo=timezone.utc) if s.created_at.tzinfo is None else s.created_at) < comparison_date
+    ]
+    comparison_revenue = sum(plan_map.get(sub.plan_id, 0) for sub in comparison_subs)
+    revenue_change = ((revenue - comparison_revenue) / comparison_revenue * 100) if comparison_revenue > 0 else 0
+    
+    # Page views (using project leads as proxy, filtered by date range)
+    page_views = await ProjectLead.find({
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
+    comparison_views = await ProjectLead.find({"created_at": {"$lt": comparison_date}}).count()
+    views_change = ((page_views - comparison_views) / comparison_views * 100) if comparison_views > 0 else 0
     
     # === GROWTH METRICS (Last 12 months) ===
     growth_metrics = []
@@ -125,17 +141,27 @@ async def get_comprehensive_analytics(
         {"name": "Others", "value": max(0, others_pct)}
     ]
     
-    # === CITY ANALYTICS ===
+    # === CITY ANALYTICS === (filtered by date range)
     # Use landmarks to get city data since projects have city_id (UUID) not city name
     landmarks = await Landmark.find_all().to_list()
     city_data = defaultdict(lambda: {"projects": 0, "users": 0})
     
-    for landmark in landmarks:
-        city = landmark.city or "Unknown"
-        city_data[city]["projects"] += (landmark.total_projects or 0)
+    # Get projects in date range and count by city via landmarks
+    projects_in_range = await Project.find({
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).to_list()
+    project_landmark_ids = {p.landmark_id for p in projects_in_range if hasattr(p, 'landmark_id') and p.landmark_id}
     
-    # Get users by city (if available)
-    users_all = await User.find({"role": UserRole.BUYER}).to_list()
+    for landmark in landmarks:
+        if landmark.id in project_landmark_ids:
+            city = landmark.city or "Unknown"
+            city_data[city]["projects"] += 1
+    
+    # Get users by city (if available, filtered by date range)
+    users_all = await User.find({
+        "role": UserRole.BUYER,
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).to_list()
     for user in users_all:
         if hasattr(user, 'city') and user.city:
             city_data[user.city]["users"] += 1
@@ -145,13 +171,26 @@ async def get_comprehensive_analytics(
         for city, data in sorted(city_data.items(), key=lambda x: x[1]["projects"], reverse=True)[:7]
     ]
     
-    # === CONVERSION FUNNEL ===
-    total_leads = await ProjectLead.find_all().count()
+    # === CONVERSION FUNNEL === (filtered by date range)
+    total_leads = await ProjectLead.find({
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
     property_views = total_leads  # Using leads as proxy for views
-    wishlisted = await ProjectLead.find({"is_wishlisted": True}).count()
-    lead_submissions = await ProjectLead.find({"status": {"$in": ["CONTACTED", "PURCHASED"]}}).count()
-    site_visits = await VisitBooking.find_all().count()
-    conversions = await ProjectLead.find({"status": "PURCHASED"}).count()
+    wishlisted = await ProjectLead.find({
+        "is_wishlisted": True,
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
+    lead_submissions = await ProjectLead.find({
+        "status": {"$in": ["CONTACTED", "PURCHASED"]},
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
+    site_visits = await VisitBooking.find({
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
+    conversions = await ProjectLead.find({
+        "status": "PURCHASED",
+        "created_at": {"$gte": period_start, "$lte": now}
+    }).count()
     
     conversion_funnel = [
         {"name": "Website Visits", "value": property_views * 2 if property_views > 0 else 10000},  # Estimate
