@@ -25,5 +25,7 @@ __all__ = [
     "admin_landmarks",
     "admin_videos",
     "locality",
-    "developer_uploads"
+    "developer_uploads",
+    "developer_auth",
+    "lawyer_auth"
 ]

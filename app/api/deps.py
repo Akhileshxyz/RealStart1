@@ -14,6 +14,15 @@ security_scheme = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> User:
     token = credentials.credentials
+    
+    # Check if token is blacklisted
+    is_blacklisted = await redis_client.exists(f"blacklist:token:{token}")
+    if is_blacklisted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been invalidated (logged out)",
+        )
+
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]

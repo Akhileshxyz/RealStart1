@@ -2,7 +2,7 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
-from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus
+from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus, PropertyType
 
 # Legal Document Schemas
 class LegalDocumentCreate(BaseModel):
@@ -27,10 +27,26 @@ class ProjectBase(BaseModel):
     approval_type: Optional[ProjectAppovalType] = None
     rera_number: Optional[str] = None
     address: Optional[str] = None
+    address_line_1: Optional[str] = None
+    address_line_2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    landmark: Optional[str] = None
+    google_maps_link: Optional[str] = None
+    
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     landmark_id: Optional[UUID] = None
+    
     launch_year: Optional[int] = None
+    property_type: Optional[PropertyType] = None
+    total_area_sqft: Optional[float] = None
+    number_of_units: Optional[int] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    possession_date: Optional[datetime] = None
+    video_url: Optional[str] = None
 
 # Creation by Developer (Status not allowed, defaults to PENDING)
 class ProjectCreate(ProjectBase):

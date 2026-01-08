@@ -34,6 +34,13 @@ class ProjectAppovalType(str, Enum):
     PANCHAYAT = "PANCHAYAT"
     OTHER = "OTHER"
 
+class PropertyType(str, Enum):
+    RESIDENTIAL_APARTMENT = "Residential apartment"
+    VILLA = "Villa"
+    PLOTS = "Plots"
+    COMMERCIAL = "Commercial"
+    ROW_HOUSE = "Row House"
+
 class Project(Document):
     id: UUID = Field(default_factory=uuid4)
     developer_id: UUID
@@ -51,13 +58,32 @@ class Project(Document):
     rera_number: Optional[str] = None
     
     # Location
-    address: Optional[str] = None
+    address: Optional[str] = None # Legacy/Full Address
+    address_line_1: Optional[str] = None
+    address_line_2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    landmark: Optional[str] = None # Descriptive landmark text
+    google_maps_link: Optional[str] = None
+
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     
     # Metadata
+    property_type: Optional[PropertyType] = None
     launch_year: Optional[int] = None
     total_area_sqft: Optional[float] = None
+    number_of_units: Optional[int] = None
+    
+    # Price
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    
+    # Other
+    possession_date: Optional[datetime] = None
+    video_url: Optional[str] = None
+
     is_hidden: bool = False
     hidden_at: Optional[datetime] = None
     is_active: bool = True # For soft delete

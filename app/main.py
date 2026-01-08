@@ -32,7 +32,9 @@ from app.api.v1 import (
     admin_landmarks,
     admin_videos,
     locality,
-    developer_uploads
+    developer_uploads,
+    developer_auth,
+    lawyer_auth
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -91,6 +93,8 @@ tags_metadata = [
     {"name": "Locality", "description": "Map-based Locality Intelligence APIs (Mappls integration)."},
     {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
     {"name": "Lawyer Portal", "description": "Legal document verification and call management."},
+    {"name": "Developer - Authentication", "description": "Login and password management for Developers."},
+    {"name": "Lawyer - Authentication", "description": "Login and password management for Lawyers."},
 ]
 
 app = FastAPI(
@@ -131,6 +135,7 @@ app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}")
 app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["User - Interactions"])
 
 # 2. Developer Portal
+app.include_router(developer_auth.router, prefix=f"{settings.API_V1_STR}/developers/auth", tags=["Developer - Authentication"])
 app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
 app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/developers/leads", tags=["Developer - Leads"])
 app.include_router(developer_webhooks.router, prefix=f"{settings.API_V1_STR}/developers/webhooks", tags=["Developer - Webhooks"])
@@ -160,6 +165,7 @@ app.include_router(locality.router, prefix=f"{settings.API_V1_STR}/locality", ta
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
 
 # 5. Lawyer Portal
+app.include_router(lawyer_auth.router, prefix=f"{settings.API_V1_STR}/lawyer/auth", tags=["Lawyer - Authentication"])
 app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer Portal"])
 
 # Static files for uploads
