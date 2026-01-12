@@ -12,6 +12,7 @@ from app.core.permissions import TeamProjectsPermission
 router = APIRouter()
 
 from app.services.subscription_service import SubscriptionService
+from app.api.v1.locality import forward_geocode_mappls
 
 @router.post("/", response_model=ProjectResponse)
 async def create_project(
@@ -40,6 +41,23 @@ async def create_project(
         # If user is a developer, ensure they link it to themselves or their organization
         if current_user.role == UserRole.DEVELOPER:
              project_in.developer_id = current_user.id
+        
+        # Auto-populating Latitude/Longitude if missing
+        if not project_in.latitude or not project_in.longitude:
+            geo_query = None
+            if project_in.google_maps_link:
+                geo_query = project_in.google_maps_link
+            elif project_in.landmark:
+                geo_query = f"{project_in.landmark}, {project_in.city or ''}"
+            elif project_in.address_line_1:
+                geo_query = f"{project_in.address_line_1}, {project_in.city or ''}"
+            
+            if geo_query:
+                # Attempt to Geocode
+                geo_data = await forward_geocode_mappls(geo_query)
+                if geo_data and geo_data.get("latitude"):
+                    project_in.latitude = float(geo_data["latitude"])
+                    project_in.longitude = float(geo_data["longitude"])
         
         project = Project(
             **project_in.model_dump(),

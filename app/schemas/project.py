@@ -2,16 +2,18 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
-from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus, PropertyType
+from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus, PropertyType, LegalDocumentType
 
 # Legal Document Schemas
 class LegalDocumentCreate(BaseModel):
     name: str
+    type: LegalDocumentType = LegalDocumentType.OTHER
     file_url: str
 
 class LegalDocumentResponse(BaseModel):
     id: UUID
     name: str
+    type: LegalDocumentType
     file_url: str
     status: LegalDocumentStatus
     lawyer_notes: Optional[str] = None
@@ -19,6 +21,11 @@ class LegalDocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class LegalCompliance(BaseModel):
+    is_rera_registered: bool = False
+    has_approved_plan: bool = False
+    has_clear_title: bool = False
 
 # Shared Properties
 class ProjectBase(BaseModel):
@@ -47,6 +54,15 @@ class ProjectBase(BaseModel):
     max_price: Optional[float] = None
     possession_date: Optional[datetime] = None
     video_url: Optional[str] = None
+    brochure_url: Optional[str] = None
+    gallery_images: List[str] = []
+
+    # Features
+    amenities: List[str] = []
+    special_features: List[str] = []
+    nearby_facilities: List[str] = []
+    
+    legal_compliance: LegalCompliance = LegalCompliance()
 
 # Creation by Developer (Status not allowed, defaults to PENDING)
 class ProjectCreate(ProjectBase):
@@ -67,7 +83,7 @@ class ProjectAdminUpdate(ProjectBase):
 class ProjectResponse(ProjectBase):
     id: UUID
     developer_id: UUID
-    landmark_id: Optional[UUID] = None
+    # landmark_id: Optional[UUID] = None # Removed to match request focus on text
     slug: str
     status: ProjectStatus
     is_hidden: bool
