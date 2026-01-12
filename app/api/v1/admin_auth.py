@@ -1,16 +1,15 @@
+from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
-from app.api import deps
-from app.core import security
-from app.models.user import User, UserRole
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import HTTPAuthorizationCredentials
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.api import deps
 from app.core import security
+from app.core.config import settings
+from app.core.redis_client import redis_client
 from app.models.user import User, UserRole
-from app.schemas.auth import UserCreateAdmin, UserResponse, Token
+from app.schemas.auth import UserCreateAdmin, UserResponse, Token, LoginRequest, Message
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -44,31 +43,58 @@ async def register_admin_user(
 
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
-async def login_admin_access_token(
+async def login_admin(
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends()
+    login_data: LoginRequest
 ) -> Any:
     """
-    OAuth2 compatible token login for Privileged Users (Admin, Developer, Lawyer, etc.).
-    Restricted: BUYER role cannot login here.
+    Admin/Staff Login.
+    - Authenticates user with email/password.
+    - Ensures user has ADMIN, SUPER_ADMIN, or MANAGER role.
+    - Supports Remember Me.
     """
-    user = await User.find_one({"email": form_data.username})
+    user = await User.find_one({"email": login_data.email})
 
-    # Generic error message
-    if not user or not security.verify_password(form_data.password, user.hashed_password) or not user.is_active:
+    if not user or not security.verify_password(login_data.password, user.hashed_password) or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
     
-    # Restrict Admin Login: BUYERS cannot login here
-    if user.role == UserRole.BUYER:
+    # Restrict to Admin/Manager roles (and Super Admin)
+    # Developers have their own portal, Lawyers have their own.
+    # If the user is strictly a Developer trying to login here, strictly speaking we could allow it if this is a "Unified" staff login, 
+    # but the prompt asked for separate "like Developer and Lawyer", implying this is the "Admin" portal auth.
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER]:
          raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Buyers must use the public portal."
+            detail="Access denied. This portal is for Administrators."
         )
 
+    # Determine token expiry
+    if login_data.remember_me:
+        access_token_expires = timedelta(days=7)
+    else:
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
     return {
-        "access_token": security.create_access_token(user.id),
+        "access_token": security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        ),
         "token_type": "bearer",
     }
+
+@router.post("/logout", response_model=Message)
+async def logout_admin(
+    current_user: User = Depends(deps.get_current_user),
+    token: HTTPAuthorizationCredentials = Depends(deps.security_scheme)
+) -> Any:
+    """
+    Logout.
+    Blacklists the current access token.
+    """
+    token_str = token.credentials
+    # Default blacklist TTL 7 days
+    await redis_client.set(f"blacklist:token:{token_str}", "true", ttl=60*60*24*7)
+    
+    return {"message": "Successfully logged out"}
