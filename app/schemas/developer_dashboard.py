@@ -82,35 +82,35 @@ class DeveloperDashboardMetrics(BaseModel):
         from_attributes = True
 
 
+
+class StatMetric(BaseModel):
+    """Metric with value, change, and trend"""
+    value: float | int
+    change: float | int
+    trend: str  # "up", "down", "neutral"
+
+
+class DashboardStats(BaseModel):
+    """Top level dashboard stats"""
+    visitors: StatMetric
+    visit_bookings: StatMetric
+    legal_consultations: StatMetric
+    interested_buyers: StatMetric
+
+
+class LeadsByProject(BaseModel):
+    """Simplified leads by project metric"""
+    project_name: str
+    total_leads: int
+
+
 class EnhancedDeveloperDashboard(BaseModel):
-    """Enhanced dashboard with all analytics"""
-    # Time period info
-    period_start: datetime
-    period_end: datetime
-    period_type: str
-
-    # Summary Metrics
-    total_visitors: int
-    visit_bookings: int
-    legal_consultations: int
-    interested_buyers: int
-
-    # Visitors & Leads Trend (time series data)
+    """Enhanced dashboard with all analytics matches user request"""
+    stats: DashboardStats
     visitors_leads_trend: List[TrendDataPoint]
-
-    # Leads by Project
-    leads_by_project: List[ProjectMetrics]
-
-    # Leads by City (user location)
-    leads_by_city: List[CityMetrics]
-
-    # Projects Performance
+    leads_by_project: List[LeadsByProject]
     projects_performance: List[ProjectPerformance]
-
-    # Recent Activity
     recent_activity: List[RecentActivityItem]
-
-    # Lead Status Distribution
     lead_status_distribution: List[LeadStatusCount]
 
     class Config:
@@ -119,17 +119,17 @@ class EnhancedDeveloperDashboard(BaseModel):
 
 # New Analytics Dashboard Schemas
 
-class OverviewMetrics(BaseModel):
-    """Overview section metrics"""
-    total_views: int
-    total_leads: int
-    wishlists: int
-    conversion_rate: float  # percentage
+class OverviewStats(BaseModel):
+    """Overview section metrics with trends"""
+    total_views: StatMetric
+    total_leads: StatMetric
+    wishlists: StatMetric
+    conversion_rate: StatMetric
 
 
-class WeeklyPerformancePoint(BaseModel):
-    """Single point in weekly performance trend"""
-    week: str  # "Week 1", "Week 2", etc.
+class PerformanceTrendPoint(BaseModel):
+    """Single point in performance trend"""
+    label: str  # e.g. "Jan", "Week 1"
     views: int
     leads: int
     conversions: int
@@ -150,11 +150,10 @@ class TrafficSource(BaseModel):
     count: int
 
 
-class DeviceBreakdown(BaseModel):
-    """Device usage breakdown"""
-    mobile: float  # percentage
-    desktop: float
-    tablet: float
+class DeviceBreakdownItem(BaseModel):
+    """Device usage item"""
+    name: str
+    value: float
 
 
 class GeographicDistribution(BaseModel):
@@ -179,18 +178,15 @@ class ConversionMetric(BaseModel):
     change: float  # percentage change
 
 
-class LeadQualityDistribution(BaseModel):
-    """Lead quality breakdown"""
-    hot: int
-    warm: int
-    cold: int
+class LeadQualityItem(BaseModel):
+    """Lead quality item"""
+    quality: str
+    count: int
 
 
 class ProjectPerformanceRow(BaseModel):
     """Project performance table row"""
-    project_id: UUID
     project_name: str
-    project_slug: str
     views: int
     leads: int
     conversion: float  # percentage
@@ -198,39 +194,16 @@ class ProjectPerformanceRow(BaseModel):
 
 
 class AnalyticsDashboard(BaseModel):
-    """Comprehensive analytics dashboard"""
-    # Time period
-    period_start: datetime
-    period_end: datetime
-    period_type: str
-
-    # Overview
-    overview: OverviewMetrics
-
-    # Performance Trends
-    weekly_performance: List[WeeklyPerformancePoint]
-
-    # Top Locations
-    top_locations: List[TopLocation]
-
-    # Traffic
+    """Comprehensive analytics dashboard matching user request"""
+    overview: OverviewStats
+    performance_trend: List[PerformanceTrendPoint]
     traffic_sources: List[TrafficSource]
-    device_breakdown: DeviceBreakdown
-
-    # Geographic Distribution
+    device_breakdown: List[DeviceBreakdownItem]
     geographic_distribution: List[GeographicDistribution]
-
-    # Conversion Funnel
-    conversion_funnel: List[ConversionFunnelStage]
-
-    # Conversion Metrics
-    conversion_metrics: List[ConversionMetric]
-
-    # Lead Quality
-    lead_quality: LeadQualityDistribution
-
-    # Project Performance
     project_performance: List[ProjectPerformanceRow]
+    conversion_funnel: List[ConversionFunnelStage]
+    conversion_metrics: List[ConversionMetric]
+    lead_quality: List[LeadQualityItem]
 
     class Config:
         from_attributes = True

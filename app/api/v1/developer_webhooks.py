@@ -34,7 +34,7 @@ async def create_webhook(
     
     webhook = WebhookSubscription(
         developer_id=current_user.id,
-        url=webhook_in.url,
+        url=str(webhook_in.url),
         events=webhook_in.events,
         secret_token=webhook_in.secret_token
     )

@@ -59,6 +59,9 @@ async def invite_team_member(
 
     # Validate Permissions
     for p in invite_in.permissions:
+        # Allow granular permissions (e.g. view:project_id, leads:project_id)
+        if ":" in p and (p.startswith("view:") or p.startswith("edit:") or p.startswith("leads:")):
+            continue
         if p not in ALL_PERMISSIONS:
              raise HTTPException(status_code=400, detail=f"Invalid permission: {p}")
 
@@ -124,6 +127,9 @@ async def update_member_permissions(
     if update_in.permissions is not None:
         # Validate Permissions
         for p in update_in.permissions:
+            # Allow granular permissions
+            if ":" in p and (p.startswith("view:") or p.startswith("edit:") or p.startswith("leads:")):
+                continue
             if p not in ALL_PERMISSIONS:
                  raise HTTPException(status_code=400, detail=f"Invalid permission: {p}")
         member.permissions = update_in.permissions
