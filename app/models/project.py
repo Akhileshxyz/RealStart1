@@ -13,9 +13,23 @@ class LegalDocumentStatus(str, Enum):
     VERIFIED = "VERIFIED"
     NEEDS_UPDATE = "NEEDS_UPDATE"
 
+class LegalDocumentType(str, Enum):
+    RERA_CERT = "RERA_CERT"
+    APPROVED_PLAN = "APPROVED_PLAN"
+    SALE_DEED = "SALE_DEED"
+    MOTHER_DEED = "MOTHER_DEED"
+    ENCUMBRANCE_CERT = "ENCUMBRANCE_CERT"
+    OTHER = "OTHER"
+
+class LegalCompliance(BaseModel):
+    is_rera_registered: bool = False
+    has_approved_plan: bool = False
+    has_clear_title: bool = False
+
 class LegalDocument(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    name: str # e.g., "RTC", "EC"
+    name: str # e.g., "RERA Certificate"
+    type: LegalDocumentType = LegalDocumentType.OTHER
     file_url: str
     status: LegalDocumentStatus = LegalDocumentStatus.PENDING
     lawyer_notes: Optional[str] = None
@@ -83,6 +97,13 @@ class Project(Document):
     # Other
     possession_date: Optional[datetime] = None
     video_url: Optional[str] = None
+    brochure_url: Optional[str] = None
+    gallery_images: List[str] = Field(default_factory=list)
+
+    # Features
+    amenities: List[str] = Field(default_factory=list)
+    special_features: List[str] = Field(default_factory=list)
+    nearby_facilities: List[str] = Field(default_factory=list)
 
     is_hidden: bool = False
     hidden_at: Optional[datetime] = None
@@ -90,6 +111,7 @@ class Project(Document):
     
     # Legal / Documents
     documents: List[LegalDocument] = Field(default_factory=list)
+    legal_compliance: LegalCompliance = Field(default_factory=LegalCompliance)
     legal_status_summary: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

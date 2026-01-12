@@ -80,6 +80,38 @@ async def reverse_geocode_mappls(lat: float, lng: float) -> Dict[str, Any]:
             return None
     return None
 
+async def forward_geocode_mappls(query: str) -> Optional[Dict[str, Any]]:
+    """Call Mappls AutoComplete/Geocoding API to get lat/lng from address"""
+    token = await get_mappls_token()
+    if not token or not query:
+        return None
+        
+    # Use Atlas Search/Auto-suggest API
+    url = f"{settings.MAPPLS_BASE_URL}/atlas/all?query={query}"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                # Returns list of suggested places
+                suggested_locations = data.get("suggestedLocations", [])
+                if suggested_locations:
+                    best_match = suggested_locations[0]
+                    # Atlas API returns 'latitude' and 'longitude' directly usually
+                    # Or sometimes 'eLoc' which needs another call. 
+                    # Assuming basic response has lat/lng or similar
+                    return {
+                        "latitude": best_match.get("latitude"),
+                        "longitude": best_match.get("longitude"),
+                        "formatted_address": best_match.get("placeName") or best_match.get("placeAddress")
+                    }
+        except Exception as e:
+            logger.error(f"Mappls Forward Geo failed: {e}")
+            return None
+    return None
+
 # --- 1. Resolver API ---
 
 @router.post("/resolve", response_model=LocationResolveResponse)
