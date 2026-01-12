@@ -34,10 +34,10 @@ async def get_current_subscription(
         raise HTTPException(status_code=403, detail="Not authorized")
         
     # Find latest active or pending subscription
-    sub = await DeveloperSubscription.find_one(
+    sub = await DeveloperSubscription.find(
         DeveloperSubscription.developer_id == current_user.id,
         DeveloperSubscription.status == SubscriptionStatus.ACTIVE
-    ).sort("-end_date")
+    ).sort("-end_date").first_or_none()
     
     if not sub:
         return None

@@ -7,7 +7,7 @@ from pydantic import Field, HttpUrl
 class WebhookSubscription(Document):
     id: UUID = Field(default_factory=uuid4)
     developer_id: UUID
-    url: HttpUrl
+    url: str
     events: List[str] = []  # e.g., ["lead.wishlist", "lead.legal_request", "lead.visit_booked"]
     secret_token: Optional[str] = None
     is_active: bool = True
