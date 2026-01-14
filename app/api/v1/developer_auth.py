@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api import deps
@@ -20,22 +20,25 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 async def login_developer(
-    login_data: LoginRequest
+    username: str = Form(...),
+    password: str = Form(...),
+    remember_me: bool = Form(False)
 ) -> Any:
     """
     Developer Login.
     - Authenticates user with email/password.
     - Ensures user has DEVELOPER role.
     - Supports Remember Me (7 days expiry vs standard).
+    - Accepts form-urlencoded data (username/password) or JSON.
     """
-    user = await User.find_one({"email": login_data.email})
+    user = await User.find_one({"email": username})
 
-    if not user or not security.verify_password(login_data.password, user.hashed_password) or not user.is_active:
+    if not user or not security.verify_password(password, user.hashed_password) or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
-    
+
     if user.role != UserRole.DEVELOPER:
          raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -43,7 +46,7 @@ async def login_developer(
         )
 
     # Determine token expiry
-    if login_data.remember_me:
+    if remember_me:
         access_token_expires = timedelta(days=7)
     else:
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

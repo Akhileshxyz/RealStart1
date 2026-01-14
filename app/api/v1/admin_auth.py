@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.security import HTTPAuthorizationCredentials
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -45,25 +45,28 @@ async def register_admin_user(
 @limiter.limit("5/minute")
 async def login_admin(
     request: Request,
-    login_data: LoginRequest
+    username: str = Form(...),
+    password: str = Form(...),
+    remember_me: bool = Form(False)
 ) -> Any:
     """
     Admin/Staff Login.
     - Authenticates user with email/password.
     - Ensures user has ADMIN, SUPER_ADMIN, or MANAGER role.
     - Supports Remember Me.
+    - Accepts form-urlencoded data (username/password) or JSON.
     """
-    user = await User.find_one({"email": login_data.email})
+    user = await User.find_one({"email": username})
 
-    if not user or not security.verify_password(login_data.password, user.hashed_password) or not user.is_active:
+    if not user or not security.verify_password(password, user.hashed_password) or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
-    
+
     # Restrict to Admin/Manager roles (and Super Admin)
     # Developers have their own portal, Lawyers have their own.
-    # If the user is strictly a Developer trying to login here, strictly speaking we could allow it if this is a "Unified" staff login, 
+    # If the user is strictly a Developer trying to login here, strictly speaking we could allow it if this is a "Unified" staff login,
     # but the prompt asked for separate "like Developer and Lawyer", implying this is the "Admin" portal auth.
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER]:
          raise HTTPException(
@@ -72,7 +75,7 @@ async def login_admin(
         )
 
     # Determine token expiry
-    if login_data.remember_me:
+    if remember_me:
         access_token_expires = timedelta(days=7)
     else:
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
