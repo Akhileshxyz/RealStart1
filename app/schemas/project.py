@@ -1,8 +1,15 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
-from app.models.project import ProjectStatus, ProjectAppovalType, LegalDocumentStatus, PropertyType, LegalDocumentType
+from app.models.project import (
+    ProjectStatus, 
+    ProjectAppovalType, 
+    LegalDocumentStatus, 
+    PropertyType, 
+    LegalDocumentType,
+    LegalCompliance
+)
 
 # Legal Document Schemas
 class LegalDocumentCreate(BaseModel):
@@ -22,10 +29,43 @@ class LegalDocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class LegalCompliance(BaseModel):
-    is_rera_registered: bool = False
-    has_approved_plan: bool = False
-    has_clear_title: bool = False
+# Analytics Schemas
+class WeeklyStat(BaseModel):
+    date: str
+    views: int
+    leads: int
+
+class MonthlyStat(BaseModel):
+    date: str
+    views: int
+    leads: int
+    wishlists: int
+
+class TrafficSource(BaseModel):
+    name: str
+    value: float
+
+class RecentLead(BaseModel):
+    id: str
+    name: str
+    phone: Optional[str] = None
+    email: str
+    created_at: datetime
+    status: str
+
+class ProjectAnalytics(BaseModel):
+    total_views: int = 0
+    views_change_perc: float = 0.0
+    total_leads: int = 0
+    leads_change_perc: float = 0.0
+    total_wishlists: int = 0
+    wishlists_change_perc: float = 0.0
+    conversion_rate: float = 0.0
+    
+    weekly_stats: List[WeeklyStat] = []
+    monthly_stats: List[MonthlyStat] = []
+    traffic_breakdown: List[TrafficSource] = []
+    recent_leads: List[RecentLead] = []
 
 # Shared Properties
 class ProjectBase(BaseModel):
@@ -56,6 +96,11 @@ class ProjectBase(BaseModel):
     video_url: Optional[str] = None
     brochure_url: Optional[str] = None
     gallery_images: List[str] = []
+    
+    # Unit Tracking
+    total_units: Optional[int] = None
+    available_units: Optional[int] = None
+    sold_units: Optional[int] = None
 
     # Features
     amenities: List[str] = []
@@ -98,6 +143,8 @@ class ProjectResponse(ProjectBase):
     owner_phone: Optional[str] = None
     subscription_end_date: Optional[datetime] = None
     subscription_plan_name: Optional[str] = None
+    
+    analytics: Optional[ProjectAnalytics] = None
 
     class Config:
         from_attributes = True

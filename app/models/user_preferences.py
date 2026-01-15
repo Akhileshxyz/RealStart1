@@ -4,10 +4,10 @@ from typing import Optional
 from beanie import Document
 from pydantic import Field
 
-class AdminNotificationPreferences(Document):
-    """Admin notification preferences"""
+class UserNotificationPreferences(Document):
+    """User notification preferences for all roles"""
     id: UUID = Field(default_factory=uuid4)
-    admin_id: UUID  # Links to User.id
+    user_id: UUID  # Links to User.id
     
     # Notification settings
     email_notifications: bool = True
@@ -20,4 +20,4 @@ class AdminNotificationPreferences(Document):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
-        name = "admin_notification_preferences"
+        name = "user_notification_preferences"

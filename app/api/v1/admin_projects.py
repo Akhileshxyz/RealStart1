@@ -52,7 +52,7 @@ async def list_all_projects_admin(
             # Populate Response
             enhanced_projects = []
             for p in projects:
-                p_resp = ProjectResponse.model_validate(p)
+                p_resp = ProjectResponse.model_validate(p.model_dump())
                 
                 # Owner Info
                 if p.developer_id and p.developer_id in dev_map:
@@ -70,7 +70,8 @@ async def list_all_projects_admin(
                 enhanced_projects.append(p_resp)
             return enhanced_projects
             
-        return projects
+        # If no developers/enhancement needed, still map to ProjectResponse
+        return [ProjectResponse.model_validate(p.model_dump()) for p in projects]
     except Exception as e:
         with open("c:\\laragon\\www\\realstart-be\\logs\\debug_error.log", "w") as f:
             f.write(traceback.format_exc())
@@ -88,7 +89,7 @@ async def get_project_details_admin(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    p_resp = ProjectResponse.model_validate(project)
+    p_resp = ProjectResponse.model_validate(project.model_dump())
     
     # Populate Developer Info
     if project.developer_id:

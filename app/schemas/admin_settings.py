@@ -11,7 +11,7 @@ class ProfileUpdate(BaseModel):
     class Config:
         from_attributes = True
 
-class AdminProfileResponse(BaseModel):
+class UserProfileResponse(BaseModel):
     id: UUID
     email: EmailStr
     full_name: str
@@ -22,7 +22,7 @@ class AdminProfileResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
+        
 # Notification Preferences
 class NotificationPreferences(BaseModel):
     email_notifications: bool = True
@@ -41,9 +41,9 @@ class NotificationPreferencesUpdate(BaseModel):
     payment_alerts: Optional[bool] = None
     system_updates: Optional[bool] = None
 
-# Admin Settings Response
-class AdminSettingsResponse(BaseModel):
-    profile: AdminProfileResponse
+# User Settings Response
+class UserSettingsResponse(BaseModel):
+    profile: UserProfileResponse
     notifications: NotificationPreferences
     
     class Config:

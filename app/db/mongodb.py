@@ -21,7 +21,7 @@ from app.models.property_transaction import PropertyTransaction
 from app.models.society import Society
 from app.models.locality_review import LocalityReview
 from app.models.price_history import PriceHistory
-from app.models.admin_preferences import AdminNotificationPreferences
+from app.models.user_preferences import UserNotificationPreferences
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -54,7 +54,7 @@ async def init_db():
             Society,
             LocalityReview,
             PriceHistory,
-            AdminNotificationPreferences
+            UserNotificationPreferences
         ]
     )
 

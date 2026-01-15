@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api import deps
 from app.core import security
 from app.models.user import User, UserRole
-from app.models.admin_preferences import AdminNotificationPreferences
+from app.models.user_preferences import UserNotificationPreferences
 from app.schemas.auth import PasswordChange, UserResponse
 from app.schemas.admin_settings import (
     ProfileUpdate,
-    AdminProfileResponse,
+    UserProfileResponse,
     NotificationPreferences,
     NotificationPreferencesUpdate,
-    AdminSettingsResponse
+    UserSettingsResponse
 )
 from app.utils.cache_invalidation import invalidate_user_cache
 from datetime import datetime
@@ -24,19 +24,19 @@ router = APIRouter()
 
 # ==================== PROFILE MANAGEMENT ====================
 
-@router.get("/profile", response_model=AdminProfileResponse)
-async def get_admin_profile(
+@router.get("/profile", response_model=UserProfileResponse)
+async def get_user_profile(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get current admin's profile.
+    Get current user's profile.
     
     Returns detailed profile information including:
     - Email, full name, phone
     - Role and active status
     - Account creation date
     """
-    return AdminProfileResponse(
+    return UserProfileResponse(
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
@@ -47,13 +47,13 @@ async def get_admin_profile(
     )
 
 
-@router.patch("/profile", response_model=AdminProfileResponse)
-async def update_admin_profile(
+@router.patch("/profile", response_model=UserProfileResponse)
+async def update_user_profile(
     profile_update: ProfileUpdate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Update admin profile information.
+    Update user profile information.
     
     Allows updating:
     - Full name
@@ -73,9 +73,9 @@ async def update_admin_profile(
     # Invalidate cache
     await invalidate_user_cache(current_user.id)
     
-    logger.info(f"Profile updated for admin {current_user.email}")
+    logger.info(f"Profile updated for user {current_user.email}")
     
-    return AdminProfileResponse(
+    return UserProfileResponse(
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
@@ -94,22 +94,17 @@ async def change_password(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Change password for the currently authenticated admin.
+    Change password for the currently authenticated user.
     
     Requirements:
     - Must provide correct old password
-    - New password must meet security requirements:
-      * At least 8 characters
-      * One uppercase letter
-      * One lowercase letter
-      * One number
-      * One special character
+    - New password must meet security requirements
     - New password must be different from old password
     """
     # Verify old password
     if not security.verify_password(password_data.old_password, current_user.hashed_password):
         security_logger.warning(
-            f"Failed password change attempt for admin {current_user.email} - incorrect old password"
+            f"Failed password change attempt for user {current_user.email} - incorrect old password"
         )
         raise HTTPException(
             status_code=400,
@@ -130,7 +125,7 @@ async def change_password(
     # Invalidate user cache to force re-authentication
     await invalidate_user_cache(current_user.id)
 
-    logger.info(f"Password changed successfully for admin {current_user.email}")
+    logger.info(f"Password changed successfully for user {current_user.email}")
     security_logger.info(f"Password changed: {current_user.email} (role: {current_user.role})")
 
     return current_user
@@ -143,7 +138,7 @@ async def get_notification_preferences(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get admin notification preferences.
+    Get user notification preferences.
     
     Returns settings for:
     - Email notifications
@@ -152,16 +147,13 @@ async def get_notification_preferences(
     - Payment alerts
     - System updates
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     # Get or create preferences
-    prefs = await AdminNotificationPreferences.find_one({"admin_id": current_user.id})
+    prefs = await UserNotificationPreferences.find_one({"user_id": current_user.id})
     
     if not prefs:
         # Create default preferences
-        prefs = AdminNotificationPreferences(
-            admin_id=current_user.id,
+        prefs = UserNotificationPreferences(
+            user_id=current_user.id,
             email_notifications=True,
             subscription_reminders=True,
             new_developer_alerts=True,
@@ -185,19 +177,16 @@ async def update_notification_preferences(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Update admin notification preferences.
+    Update user notification preferences.
     
     Allows selective updates to any notification setting.
     Only provided fields will be updated.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     # Get or create preferences
-    prefs = await AdminNotificationPreferences.find_one({"admin_id": current_user.id})
+    prefs = await UserNotificationPreferences.find_one({"user_id": current_user.id})
     
     if not prefs:
-        prefs = AdminNotificationPreferences(admin_id=current_user.id)
+        prefs = UserNotificationPreferences(user_id=current_user.id)
         await prefs.insert()
     
     # Update fields if provided
@@ -219,7 +208,7 @@ async def update_notification_preferences(
     prefs.updated_at = datetime.utcnow()
     await prefs.save()
     
-    logger.info(f"Notification preferences updated for admin {current_user.email}")
+    logger.info(f"Notification preferences updated for user {current_user.email}")
     
     return NotificationPreferences(
         email_notifications=prefs.email_notifications,
@@ -232,12 +221,12 @@ async def update_notification_preferences(
 
 # ==================== COMBINED SETTINGS ====================
 
-@router.get("/all", response_model=AdminSettingsResponse)
+@router.get("/all", response_model=UserSettingsResponse)
 async def get_all_settings(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get all admin settings in one call.
+    Get all user settings in one call.
     
     Returns:
     - Profile information
@@ -245,11 +234,8 @@ async def get_all_settings(
     
     Useful for loading settings page in one request.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     # Get profile
-    profile = AdminProfileResponse(
+    profile = UserProfileResponse(
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
@@ -260,11 +246,11 @@ async def get_all_settings(
     )
     
     # Get notification preferences
-    prefs = await AdminNotificationPreferences.find_one({"admin_id": current_user.id})
+    prefs = await UserNotificationPreferences.find_one({"user_id": current_user.id})
     
     if not prefs:
-        prefs = AdminNotificationPreferences(
-            admin_id=current_user.id,
+        prefs = UserNotificationPreferences(
+            user_id=current_user.id,
             email_notifications=True,
             subscription_reminders=True,
             new_developer_alerts=True,
@@ -281,7 +267,7 @@ async def get_all_settings(
         system_updates=prefs.system_updates
     )
     
-    return AdminSettingsResponse(
+    return UserSettingsResponse(
         profile=profile,
         notifications=notifications
     )

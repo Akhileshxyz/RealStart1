@@ -13,6 +13,7 @@ router = APIRouter()
 
 from app.services.subscription_service import SubscriptionService
 from app.api.v1.locality import forward_geocode_mappls
+from app.services.analytics_service import ProjectAnalyticsService
 
 @router.post("/", response_model=ProjectResponse)
 async def create_project(
@@ -64,7 +65,7 @@ async def create_project(
             status=ProjectStatus.PENDING # Enforce Pending
         )
         await project.insert()
-        return project
+        return ProjectResponse.model_validate(project.model_dump())
     except HTTPException:
         raise
     except Exception as e:
@@ -104,7 +105,39 @@ async def list_my_projects(
         # For now, let's say Admins see all
         projects = await Project.find_all().skip(skip).limit(limit).to_list()
         
-    return projects
+    return [ProjectResponse.model_validate(p.model_dump()) for p in projects]
+
+
+@router.get("/{project_id}", response_model=ProjectResponse)
+async def get_project(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get specific project details and documents.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Access Control Enforced via Service
+    await PermissionService.enforce(
+        current_user, 
+        TeamProjectsPermission.VIEW_PROJECTS.value, 
+        developer_id_scope=project.developer_id
+    )
+
+    # Fetch Analytics
+    analytics_data = await ProjectAnalyticsService.get_project_dashboard_stats(project.id)
+    
+    # Calculate Sold Units if not explicitly set
+    if project.sold_units is None and project.total_units is not None and project.available_units is not None:
+        project.sold_units = project.total_units - project.available_units
+
+    p_resp = ProjectResponse.model_validate(project.model_dump())
+    p_resp.analytics = analytics_data
+    
+    return p_resp
 
 @router.put("/{project_id}", response_model=Any)
 async def update_project(
@@ -147,7 +180,7 @@ async def update_project(
         await project.set(update_data)
         project.updated_at = datetime.utcnow()
         await project.save()
-        return project
+        return ProjectResponse.model_validate(project.model_dump())
 
 @router.delete("/{project_id}", response_model=dict)
 async def delete_project(
@@ -194,4 +227,4 @@ async def toggle_project_visibility(
         project.hidden_at = None
         
     await project.save()
-    return project
+    return ProjectResponse.model_validate(project.model_dump())

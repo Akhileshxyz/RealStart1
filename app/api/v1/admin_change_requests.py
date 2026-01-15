@@ -1,7 +1,7 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.project import Project
@@ -13,12 +13,16 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ChangeRequestResponse])
 async def list_change_requests(
+    status: Optional[RequestStatus] = Query(None),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
-    List all pending change requests.
+    List change requests. Filter by status if provided.
     """
-    requests = await ProjectChangeRequest.find(ProjectChangeRequest.status == RequestStatus.PENDING).to_list()
+    if status:
+        requests = await ProjectChangeRequest.find(ProjectChangeRequest.status == status).sort("-created_at").to_list()
+    else:
+        requests = await ProjectChangeRequest.find_all().sort("-created_at").to_list()
     return requests
 
 @router.post("/{request_id}/approve", response_model=ChangeRequestResponse)

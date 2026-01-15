@@ -89,6 +89,9 @@ class Project(Document):
     launch_year: Optional[int] = None
     total_area_sqft: Optional[float] = None
     number_of_units: Optional[int] = None
+    total_units: Optional[int] = None
+    available_units: Optional[int] = None
+    sold_units: Optional[int] = None
     
     # Price
     min_price: Optional[float] = None
