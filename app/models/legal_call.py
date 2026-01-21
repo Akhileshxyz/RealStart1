@@ -7,7 +7,10 @@ from pydantic import Field
 
 class LegalCallStatus(str, Enum):
     OPEN = "OPEN"
+    ACCEPTED = "ACCEPTED"
+    SCHEDULED = "SCHEDULED"
     COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
 
 class LegalCallRequest(Document):
     id: UUID = Field(default_factory=uuid4)

@@ -6,6 +6,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api import deps
 from app.core import security
+from app.services.email_service import EmailService
+import logging
 from app.core.config import settings
 from app.core.redis_client import redis_client
 from app.models.user import User, UserRole
@@ -18,6 +20,7 @@ from app.schemas.auth import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/login", response_model=Token)
 async def login_lawyer(
@@ -80,7 +83,7 @@ async def forgot_password(
 ) -> Any:
     """
     Initiate Password Reset.
-    Generates a reset token and (mocks) sending an email.
+    Generates a reset token and sends an email when configured.
     """
     user = await User.find_one({"email": request.email})
     if not user:
@@ -93,8 +96,22 @@ async def forgot_password(
         expires_delta=reset_token_expires
     )
     
-    # Mock Email Sending
-    print(f"DEBUG: Password Reset Token for {user.email}: {reset_token}")
+    subject = "RealStart Password Reset"
+    text_content = (
+        "Use the token below to reset your password. "
+        f"Token: {reset_token}"
+    )
+    html_content = (
+        f"<p>Use the token below to reset your password.</p><p><strong>{reset_token}</strong></p>"
+    )
+    sent = await EmailService.send_email(
+        to_email=user.email,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+    )
+    if not sent:
+        logger.warning("Password reset email could not be sent")
 
     return {"message": "If an account exists with this email, a password reset link has been sent."}
 

@@ -24,7 +24,6 @@ from app.api.v1 import (
     developer_team,
     admin_subscriptions,
     developer_subscriptions,
-    lawyer_portal,
     admin_dashboard,
     admin_analytics,
     admin_ads,
@@ -34,7 +33,13 @@ from app.api.v1 import (
     locality,
     developer_uploads,
     developer_auth,
-    lawyer_auth
+    lawyer_auth,
+    lawyer_dashboard,
+    lawyer_cases,
+    lawyer_clients,
+    lawyer_schedule,
+    lawyer_analytics,
+    lawyer_settings
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -91,10 +96,15 @@ tags_metadata = [
     {"name": "Admin - Landmarks", "description": "Admin landmark creation and management."},
     {"name": "Admin - Videos", "description": "Video content management and analytics."},
     {"name": "Locality", "description": "Map-based Locality Intelligence APIs (Mappls integration)."},
-    {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
-    {"name": "Lawyer Portal", "description": "Legal document verification and call management."},
     {"name": "Developer - Authentication", "description": "Login and password management for Developers."},
+    {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
     {"name": "Lawyer - Authentication", "description": "Login and password management for Lawyers."},
+    {"name": "Lawyer - Dashboard", "description": "Lawyer dashboard analytics and overview."},
+    {"name": "Lawyer - Cases", "description": "Legal case management and details."},
+    {"name": "Lawyer - Clients", "description": "Client management for lawyers."},
+    {"name": "Lawyer - Schedule", "description": "Lawyer appointment and consultation scheduling."},
+    {"name": "Lawyer - Analytics", "description": "Case and performance analytics for lawyers."},
+    {"name": "Lawyer - Settings", "description": "Lawyer profile and availability settings."},
 ]
 
 app = FastAPI(
@@ -166,7 +176,12 @@ app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/setting
 
 # 5. Lawyer Portal
 app.include_router(lawyer_auth.router, prefix=f"{settings.API_V1_STR}/lawyer/auth", tags=["Lawyer - Authentication"])
-app.include_router(lawyer_portal.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer Portal"])
+app.include_router(lawyer_dashboard.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Dashboard"])
+app.include_router(lawyer_cases.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Cases"])
+app.include_router(lawyer_clients.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Clients"])
+app.include_router(lawyer_schedule.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Schedule"])
+app.include_router(lawyer_analytics.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Analytics"])
+app.include_router(lawyer_settings.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Settings"])
 
 # Static files for uploads
 from fastapi.staticfiles import StaticFiles

@@ -17,7 +17,6 @@ __all__ = [
     "developer_team",
     "admin_subscriptions",
     "developer_subscriptions",
-    "lawyer_portal",
     "admin_dashboard",
     "admin_analytics",
     "admin_ads",
@@ -27,5 +26,11 @@ __all__ = [
     "locality",
     "developer_uploads",
     "developer_auth",
-    "lawyer_auth"
+    "lawyer_auth",
+    "lawyer_dashboard",
+    "lawyer_cases",
+    "lawyer_clients",
+    "lawyer_schedule",
+    "lawyer_analytics",
+    "lawyer_settings"
 ]
