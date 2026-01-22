@@ -10,7 +10,7 @@ from app.schemas.lawyer_portal import (
 from datetime import datetime
 from uuid import UUID
 from beanie.operators import In
-from beanie.operators import In
+
 
 router = APIRouter()
 
@@ -29,11 +29,11 @@ async def get_schedule(
     now = datetime.utcnow()
     
     user_ids = list({call.user_id for call in calls})
-    users = await User.find(User.id.in_(user_ids)).to_list() if user_ids else []
+    users = await User.find(In(User.id, user_ids)).to_list() if user_ids else []
     user_map = {user.id: user.full_name for user in users}
 
     project_ids = list({call.project_id for call in calls})
-    projects = await Project.find(Project.id.in_(project_ids)).to_list() if project_ids else []
+    projects = await Project.find(In(Project.id, project_ids)).to_list() if project_ids else []
     project_map = {project.id: project for project in projects}
 
     # Process calls into events

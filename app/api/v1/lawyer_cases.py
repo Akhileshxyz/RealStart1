@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+from beanie.operators import In
 from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User
@@ -90,7 +91,7 @@ async def list_cases(
     # Ideally should be assigned projects
     projects = await Project.find({"documents.0": {"$exists": True}}).to_list()
     developer_ids = list({p.developer_id for p in projects})
-    developers = await Developer.find(Developer.id.in_(developer_ids)).to_list() if developer_ids else []
+    developers = await Developer.find(In(Developer.id, developer_ids)).to_list() if developer_ids else []
     developer_map = {dev.id: dev for dev in developers}
     for p in projects:
         # Search filter
