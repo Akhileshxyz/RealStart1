@@ -19,15 +19,17 @@ async def get_analytics(
 ) -> Any:
     lawyer_profile = await LawyerProfile.find_one(LawyerProfile.user_id == current_user.id)
     if not lawyer_profile:
-        return LawyerAnalyticsData(metrics=[], charts=[])
-    leads = await LawyerLead.find(LawyerLead.lawyer_id == lawyer_profile.id).to_list()
+        return LawyerAnalyticsData(metrics=[], monthly_data=[], case_type_data=[], resolution_data=[])
+    
+    leads = await LawyerLead.find({"lawyer_id": lawyer_profile.id}).to_list()
+
     total_cases = len(leads)
     active_clients = len({(l.client_phone or "", l.client_email or "") for l in leads if l.status != LawyerLeadStatus.LOST})
     paid_leads = [
         l for l in leads
-        if l.payment_status == LawyerPaymentStatus.PAID and l.fee_amount
+        if l.payment_status == LawyerPaymentStatus.PAID and l.service_fee
     ]
-    total_earnings_value = sum(l.fee_amount or 0 for l in paid_leads)
+    total_earnings_value = sum(l.service_fee or 0 for l in paid_leads)
 
     completed_leads = [l for l in leads if l.status == LawyerLeadStatus.COMPLETED]
     avg_resolution = 0
@@ -48,8 +50,8 @@ async def get_analytics(
     prev_clients = len({(l.client_phone or "", l.client_email or "") for l in prev_cases})
     clients_delta = current_clients - prev_clients
 
-    current_earnings = sum((l.fee_amount or 0) for l in paid_leads if l.created_at >= period_start)
-    prev_earnings = sum((l.fee_amount or 0) for l in paid_leads if prev_period_start <= l.created_at < period_start)
+    current_earnings = sum(l.service_fee or 0 for l in paid_leads if l.created_at >= period_start)
+    prev_earnings = sum(l.service_fee or 0 for l in paid_leads if prev_period_start <= l.created_at < period_start)
     earnings_delta_pct = 0.0
     if prev_earnings > 0:
         earnings_delta_pct = ((current_earnings - prev_earnings) / prev_earnings) * 100
@@ -85,84 +87,64 @@ async def get_analytics(
         ),
     ]
 
-    # Charts
-    months: List[str] = []
-    case_series: List[int] = []
-    earnings_series: List[float] = []
+    # 1. Monthly Data (Last 6 months)
+    monthly_data = []
     for i in range(5, -1, -1):
-        month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
-        next_month = (month_start + timedelta(days=32)).replace(day=1)
-        months.append(month_start.strftime("%b"))
-        month_cases = [l for l in leads if month_start <= l.created_at < next_month]
-        case_series.append(len(month_cases))
-        month_earnings = sum(
-            (l.fee_amount or 0) for l in paid_leads if month_start <= l.created_at < next_month
-        )
-        earnings_series.append(month_earnings)
+        # Calculate month range
+        target_date = now.replace(day=1)
+        for _ in range(i):
+            target_date = (target_date - timedelta(days=1)).replace(day=1)
+        
+        month_start = target_date
+        if month_start.month == 12:
+            next_month = month_start.replace(year=month_start.year + 1, month=1)
+        else:
+            next_month = month_start.replace(month=month_start.month + 1)
+            
+        month_leads = [l for l in leads if month_start <= l.created_at < next_month]
+        month_paid_leads = [l for l in paid_leads if month_start <= l.created_at < next_month]
+        
+        monthly_data.append({
+            "month": month_start.strftime("%b"),
+            "cases": len(month_leads),
+            "earnings": sum(l.service_fee or 0 for l in month_paid_leads),
+            "clients": len({(l.client_phone or "", l.client_email or "") for l in month_leads})
+        })
 
+    # 2. Case Type Distribution
     type_counts: Dict[str, int] = {}
     for lead in leads:
         key = lead.service_type or "Other"
         type_counts[key] = type_counts.get(key, 0) + 1
+    
+    colors = [
+        "hsl(var(--primary))",
+        "hsl(var(--chart-2))",
+        "hsl(var(--chart-3))",
+        "hsl(var(--chart-4))",
+        "hsl(var(--chart-5))"
+    ]
+    
+    case_type_data = []
+    sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
+    for idx, (name, value) in enumerate(sorted_types):
+        case_type_data.append({
+            "name": name,
+            "value": value,
+            "color": colors[idx % len(colors)]
+        })
 
-    resolution_counts = {
-        "Completed": sum(1 for l in leads if l.status == LawyerLeadStatus.COMPLETED),
-        "Lost": sum(1 for l in leads if l.status == LawyerLeadStatus.LOST),
-        "In Progress": sum(1 for l in leads if l.status in [LawyerLeadStatus.CONTACTED, LawyerLeadStatus.CONVERTED, LawyerLeadStatus.FOLLOW_UP]),
-        "Pending": sum(1 for l in leads if l.status == LawyerLeadStatus.NEW),
-    }
-
-    acquisition_months: List[str] = []
-    acquisition_data: List[int] = []
-    for i in range(7, -1, -1):
-        month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
-        next_month = (month_start + timedelta(days=32)).replace(day=1)
-        acquisition_months.append(month_start.strftime("%b"))
-        month_clients = {
-            (l.client_phone or "", l.client_email or "")
-            for l in leads
-            if month_start <= l.created_at < next_month
-        }
-        acquisition_data.append(len(month_clients))
-
-    charts = [
-        {
-            "id": "cases_earnings_trend",
-            "title": "Cases & Earnings Trend",
-            "type": "combo",
-            "months": months,
-            "series": [
-                {"name": "cases", "label": "cases", "data": case_series, "color": "#FF9500"},
-                {"name": "earnings", "label": "earnings", "data": earnings_series, "color": "#FF9500", "type": "line"},
-            ],
-        },
-        {
-            "id": "case_type_distribution",
-            "title": "Case Type Distribution",
-            "type": "donut",
-            "data": [
-                {"name": name, "value": value, "color": "#FF9500"}
-                for name, value in type_counts.items()
-            ],
-        },
-        {
-            "id": "case_resolution",
-            "title": "Case Resolution",
-            "type": "bar",
-            "categories": list(resolution_counts.keys()),
-            "data": [
-                {"name": "Cases", "data": list(resolution_counts.values())}
-            ],
-        },
-        {
-            "id": "client_acquisition",
-            "title": "Client Acquisition",
-            "type": "bar",
-            "months": acquisition_months,
-            "data": [
-                {"name": "New Clients", "data": acquisition_data}
-            ],
-        },
+    # 3. Resolution Data
+    resolution_data = [
+        {"status": "Won", "count": sum(1 for l in leads if l.status == LawyerLeadStatus.COMPLETED)},
+        {"status": "Settled", "count": sum(1 for l in leads if l.status == LawyerLeadStatus.SOLVED)},
+        {"status": "In Progress", "count": sum(1 for l in leads if l.status in [LawyerLeadStatus.CONTACTED, LawyerLeadStatus.CONVERTED, LawyerLeadStatus.FOLLOW_UP])},
+        {"status": "Lost", "count": sum(1 for l in leads if l.status == LawyerLeadStatus.LOST)},
     ]
 
-    return LawyerAnalyticsData(metrics=metrics, charts=charts)
+    return LawyerAnalyticsData(
+        metrics=metrics,
+        monthly_data=monthly_data,
+        case_type_data=case_type_data,
+        resolution_data=resolution_data
+    )

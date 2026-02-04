@@ -8,6 +8,7 @@ from app.models.lawyer import (
     LawyerLead,
     LawyerLeadStatus,
     LawyerPaymentStatus,
+    LawyerEvent
 )
 from beanie.operators import In
 
@@ -181,15 +182,9 @@ async def get_dashboard(current_user: User = Depends(get_current_lawyer)) -> Any
         if schedule_time.date() != now.date():
             continue
         project = project_map.get(call.project_id)
-        title = "Legal Consultation Call"
-        location = None
-        if project:
-            title = f"Legal Consultation - {project.name}"
-            if project.city and project.state:
-                location = f"{project.city}, {project.state}"
-            elif project.city:
-                location = project.city
-
+        title = f"Legal Consultation - {project.name}" if project else "Legal Consultation Call"
+        location = f"{project.city}, {project.state}" if project and project.city and project.state else (project.city if project else None)
+        
         today_events.append(
             LawyerScheduleEvent(
                 id=str(call.id),
@@ -198,9 +193,35 @@ async def get_dashboard(current_user: User = Depends(get_current_lawyer)) -> Any
                 time_str=schedule_time.strftime("%I:%M %p"),
                 location=location,
                 client_name=user_map.get(call.user_id),
-                type=EventType.MEETING,
+                type=EventType.CONSULTATION,
             )
         )
+
+    # 4b. Personal Events (today)
+    personal_events = await LawyerEvent.find(
+        LawyerEvent.lawyer_id == lawyer_id,
+        LawyerEvent.is_completed == False
+    ).to_list()
+    
+    for pe in personal_events:
+        if pe.start_time.date() != now.date():
+            continue
+        today_events.append(
+            LawyerScheduleEvent(
+                id=str(pe.id),
+                title=pe.title,
+                date=format_indian_datetime(pe.start_time),
+                time_str=pe.start_time.strftime("%I:%M %p"),
+                location=pe.location,
+                client_name=pe.client_name,
+                type=pe.event_type,
+                description=pe.description,
+                is_completed=pe.is_completed
+            )
+        )
+    
+    # Sort by time
+    today_events.sort(key=lambda x: x.date['iso'])
 
     # 5. Alerts
     alerts: List[LawyerDashboardAlert] = []

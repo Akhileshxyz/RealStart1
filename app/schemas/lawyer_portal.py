@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
+from app.models.lawyer import EventType
 
 # --- Enums (Indian context) ---
 
@@ -29,11 +30,7 @@ class ServiceType(str, Enum):
     OTHER = "Other"
 
 
-class EventType(str, Enum):
-    COURT = "Court"
-    MEETING = "Meeting"
-    TASK = "Task"
-    SITE_VISIT = "Site Visit"
+# EventType moved to models.lawyer
 
 
 # --- Utility Formatters ---
@@ -178,6 +175,31 @@ class LawyerScheduleEvent(BaseModel):
     location: Optional[str] = None
     client_name: Optional[str] = None
     type: EventType
+    description: Optional[str] = None
+    is_completed: bool = False
+
+
+class LawyerEventCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    event_type: EventType = EventType.OTHER
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    location: Optional[str] = None
+    client_name: Optional[str] = None
+    client_id: Optional[UUID] = None
+
+
+class LawyerEventUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    event_type: Optional[EventType] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    location: Optional[str] = None
+    client_name: Optional[str] = None
+    client_id: Optional[UUID] = None
+    is_completed: Optional[bool] = None
 
 
 class LawyerScheduleData(BaseModel):
@@ -195,7 +217,9 @@ class LawyerAnalyticsMetric(BaseModel):
 
 class LawyerAnalyticsData(BaseModel):
     metrics: List[LawyerAnalyticsMetric]
-    charts: List[Dict[str, Any]]  # flexible for various chart configs
+    monthly_data: List[Dict[str, Any]]
+    case_type_data: List[Dict[str, Any]]
+    resolution_data: List[Dict[str, Any]]
 
 
 class NotificationPreference(BaseModel):
@@ -217,6 +241,20 @@ class LawyerProfileData(BaseModel):
     bio: Optional[str] = None
     working_days: List[Dict[str, Any]] = []  # {"day": "Mon", "enabled": True}
     working_hours: Dict[str, str] = {}  # {"start": "09:00", "end": "18:00"}
+
+
+class LawyerProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+    specialization: Optional[List[str]] = None
+    bar_council_number: Optional[str] = None
+    experience: Optional[int] = None
+    city: Optional[str] = None
+    office_address: Optional[str] = None
+    working_days: Optional[List[Dict[str, Any]]] = None
+    working_hours: Optional[Dict[str, str]] = None
+    notification_preferences: Optional[Dict[str, bool]] = None
 
 
 class ClientLeadCreate(BaseModel):

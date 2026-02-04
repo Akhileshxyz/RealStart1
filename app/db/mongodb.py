@@ -15,7 +15,7 @@ from app.models.video import Video
 from app.models.team import DeveloperTeamMember, StaffTask, SharedClient
 from app.models.review import Review
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription
-from app.models.lawyer import LawyerProfile, LawyerLead, LawyerSubscription
+from app.models.lawyer import LawyerProfile, LawyerLead, LawyerSubscription, LawyerEvent
 import app.models.legal_call as legal_call_module
 from app.models.property_transaction import PropertyTransaction
 from app.models.society import Society
@@ -50,6 +50,7 @@ async def init_db():
             LawyerProfile,
             LawyerLead,
             LawyerSubscription,
+            LawyerEvent,
             PropertyTransaction,
             Society,
             LocalityReview,

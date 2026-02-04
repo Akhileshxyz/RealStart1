@@ -5,7 +5,7 @@ from app.models.user import User
 from app.models.lawyer import LawyerProfile
 from datetime import datetime
 from app.schemas.lawyer_portal import (
-    LawyerSettingsData, LawyerProfileData, NotificationPreference
+    LawyerSettingsData, LawyerProfileData, NotificationPreference, LawyerProfileUpdate
 )
 
 router = APIRouter()
@@ -34,6 +34,7 @@ async def get_settings(
         specialization=profile_db.specialization,
         experience=profile_db.experience_years,
         city=profile_db.cities[0] if profile_db.cities else None,
+        office_address=profile_db.office_address,
         bio=profile_db.bio,
         working_days=profile_db.working_days,
         working_hours=profile_db.working_hours,
@@ -63,21 +64,44 @@ async def get_settings(
 
 @router.patch("/settings/profile")
 async def update_profile(
-    profile_data: dict = Body(...),
+    profile_in: LawyerProfileUpdate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     profile_db = await get_lawyer_profile(current_user)
     
-    if "bio" in profile_data: profile_db.bio = profile_data["bio"]
-    if "specialization" in profile_data: profile_db.specialization = profile_data["specialization"]
-    if "bar_council_number" in profile_data: profile_db.bar_council_id = profile_data["bar_council_number"]
-    if "experience" in profile_data: profile_db.experience_years = profile_data["experience"]
-    if "city" in profile_data: profile_db.cities = [profile_data["city"]]
-    if "working_days" in profile_data: profile_db.working_days = profile_data["working_days"]
-    if "working_hours" in profile_data: profile_db.working_hours = profile_data["working_hours"]
-    if "notification_preferences" in profile_data:
-        profile_db.notification_preferences = profile_data["notification_preferences"]
-    profile_db.updated_at = datetime.utcnow()
+    # Update User fields if provided
+    user_updated = False
+    if profile_in.full_name is not None:
+        current_user.full_name = profile_in.full_name
+        user_updated = True
+    if profile_in.phone is not None:
+        current_user.phone = profile_in.phone
+        user_updated = True
     
+    if user_updated:
+        await current_user.save()
+
+    # Update Profile fields
+    if profile_in.bio is not None: 
+        profile_db.bio = profile_in.bio
+    if profile_in.specialization is not None: 
+        profile_db.specialization = profile_in.specialization
+    if profile_in.bar_council_number is not None: 
+        profile_db.bar_council_id = profile_in.bar_council_number
+    if profile_in.experience is not None: 
+        profile_db.experience_years = profile_in.experience
+    if profile_in.city is not None: 
+        profile_db.cities = [profile_in.city]
+    if profile_in.office_address is not None:
+        profile_db.office_address = profile_in.office_address
+    if profile_in.working_days is not None: 
+        profile_db.working_days = profile_in.working_days
+    if profile_in.working_hours is not None: 
+        profile_db.working_hours = profile_in.working_hours
+    if profile_in.notification_preferences is not None:
+        profile_db.notification_preferences = profile_in.notification_preferences
+        
+    profile_db.updated_at = datetime.utcnow()
     await profile_db.save()
-    return {"message": "Profile updated"}
+    
+    return {"message": "Profile updated successfully"}

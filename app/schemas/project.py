@@ -148,3 +148,10 @@ class ProjectResponse(ProjectBase):
 
     class Config:
         from_attributes = True
+
+class ProjectListResponse(BaseModel):
+    id: UUID
+    name: str
+    city: Optional[str] = None
+    rera_number: Optional[str] = None
+    property_type: Optional[PropertyType] = None

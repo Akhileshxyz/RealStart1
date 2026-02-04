@@ -16,6 +16,15 @@ class LawyerLeadStatus(str, Enum):
     SOLVED = "SOLVED"
 
 
+class EventType(str, Enum):
+    COURT = "Court"
+    MEETING = "Meeting"
+    TASK = "Task"
+    SITE_VISIT = "Site Visit"
+    CONSULTATION = "Consultation"
+    OTHER = "Other"
+
+
 class LawyerPaymentStatus(str, Enum):
     PAID = "PAID"
     UNPAID = "UNPAID"
@@ -29,6 +38,7 @@ class LawyerProfile(Document):
     specialization: List[str] = Field(default_factory=list)
     bar_council_id: Optional[str] = None
     experience_years: int = 0
+    office_address: Optional[str] = None
     profile_picture_url: Optional[str] = None
 
     is_online: bool = False
@@ -110,3 +120,26 @@ class LawyerSubscription(Document):
 
     class Settings:
         name = "lawyer_subscriptions"
+
+
+class LawyerEvent(Document):
+    id: UUID = Field(default_factory=uuid4)
+    lawyer_id: UUID
+    title: str
+    description: Optional[str] = None
+    event_type: EventType = EventType.OTHER
+    
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    
+    location: Optional[str] = None
+    client_name: Optional[str] = None
+    client_id: Optional[UUID] = None # can be user_id or lead_id
+    
+    is_completed: bool = False
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "lawyer_events"

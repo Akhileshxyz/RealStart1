@@ -39,7 +39,8 @@ from app.api.v1 import (
     lawyer_clients,
     lawyer_schedule,
     lawyer_analytics,
-    lawyer_settings
+    lawyer_settings,
+    lawyer_properties
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -182,6 +183,7 @@ app.include_router(lawyer_clients.router, prefix=f"{settings.API_V1_STR}/lawyer"
 app.include_router(lawyer_schedule.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Schedule"])
 app.include_router(lawyer_analytics.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Analytics"])
 app.include_router(lawyer_settings.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Settings"])
+app.include_router(lawyer_properties.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Properties"])
 
 # Static files for uploads
 from fastapi.staticfiles import StaticFiles

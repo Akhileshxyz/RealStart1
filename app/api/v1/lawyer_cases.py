@@ -27,6 +27,8 @@ async def get_lawyer_id(user: User) -> UUID:
 @router.get("/cases", response_model=LawyerCasesData)
 async def list_cases(
     status: Optional[str] = None,
+    priority: Optional[str] = None,
+    service_type: Optional[str] = None,
     search: Optional[str] = None,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
@@ -126,9 +128,7 @@ async def list_cases(
             date=format_indian_datetime(p.created_at or datetime.utcnow()),
             project_id=str(p.id)
         ))
-    if status and status.upper() in CaseStatus.__members__:
-        all_cases = [c for c in all_cases if c.status == CaseStatus[status.upper()]]
-
+    # Calculate global stats (relative to search) before applying specific filters
     stats = LawyerCasesStats(
         total_cases=len(all_cases),
         pending_cases=sum(1 for c in all_cases if c.status == CaseStatus.PENDING),
@@ -136,6 +136,18 @@ async def list_cases(
         completed_cases=sum(1 for c in all_cases if c.status == CaseStatus.COMPLETED),
         on_hold_cases=sum(1 for c in all_cases if c.status == CaseStatus.ON_HOLD)
     )
+
+    # Apply filters
+    if status and status.upper() in CaseStatus.__members__:
+        all_cases = [c for c in all_cases if c.status == CaseStatus[status.upper()]]
+
+    if priority and priority.upper() in CasePriority.__members__:
+        all_cases = [c for c in all_cases if c.priority == CasePriority[priority.upper()]]
+
+    if service_type:
+        # Match by enum value (handle underscores as spaces from query param)
+        st_match = service_type.lower().replace("_", " ")
+        all_cases = [c for c in all_cases if c.service_type.value.lower() == st_match]
 
     filters = {
         "status": [s.value for s in CaseStatus],
