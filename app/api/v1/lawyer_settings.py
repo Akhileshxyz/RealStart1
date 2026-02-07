@@ -7,6 +7,7 @@ from datetime import datetime
 from app.schemas.lawyer_portal import (
     LawyerSettingsData, LawyerProfileData, NotificationPreference, LawyerProfileUpdate
 )
+from app.core.redis_client import redis_client
 
 router = APIRouter()
 
@@ -24,12 +25,17 @@ async def get_lawyer_profile(user: User) -> LawyerProfile:
 async def get_settings(
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    profile_db = await get_lawyer_profile(current_user)
-    
+    # Re-fetch user from DB to ensure fresh full_name and phone values
+    user_db = await User.get(current_user.id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    profile_db = await get_lawyer_profile(user_db)
+
     profile_data = LawyerProfileData(
-        full_name=current_user.full_name or "Advocate",
-        email=current_user.email,
-        phone=current_user.phone or "",
+        full_name=user_db.full_name or "Advocate",
+        email=user_db.email,
+        phone=user_db.phone or "",
         bar_council_number=profile_db.bar_council_id,
         specialization=profile_db.specialization,
         experience=profile_db.experience_years,
@@ -77,9 +83,20 @@ async def update_profile(
     if profile_in.phone is not None:
         current_user.phone = profile_in.phone
         user_updated = True
-    
+
     if user_updated:
-        await current_user.save()
+        # Re-fetch from DB to get a proper Beanie document (cache may return detached object)
+        user_db = await User.get(current_user.id)
+        if user_db:
+            if profile_in.full_name is not None:
+                user_db.full_name = profile_in.full_name
+            if profile_in.phone is not None:
+                user_db.phone = profile_in.phone
+            await user_db.save()
+
+        # Invalidate Redis cache so GET returns fresh data
+        cache_key = redis_client.make_key("user", "id", str(current_user.id))
+        await redis_client.delete(cache_key)
 
     # Update Profile fields
     if profile_in.bio is not None: 
