@@ -40,7 +40,9 @@ from app.api.v1 import (
     lawyer_schedule,
     lawyer_analytics,
     lawyer_settings,
-    lawyer_properties
+    lawyer_settings,
+    lawyer_properties,
+    admin_market_intelligence
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -167,6 +169,7 @@ app.include_router(admin_ads.router, prefix=f"{settings.API_V1_STR}/admin/ads", 
 app.include_router(admin_team.router, prefix=f"{settings.API_V1_STR}/admin/team", tags=["Admin - Team"])
 app.include_router(admin_landmarks.router, prefix=f"{settings.API_V1_STR}/admin/landmarks", tags=["Admin - Landmarks"])
 app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
+app.include_router(admin_market_intelligence.router, prefix=f"{settings.API_V1_STR}/admin/market-intelligence", tags=["Admin - Market Intelligence"])
 
 # 4. Locality Intelligence (Public/Auth optional depending on business logic)
 # Keeping strict auth validation inside endpoints if needed, generic prefix here.

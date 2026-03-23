@@ -21,6 +21,7 @@ from app.models.property_transaction import PropertyTransaction
 from app.models.society import Society
 from app.models.locality_review import LocalityReview
 from app.models.price_history import PriceHistory
+from app.models.market_intelligence import MarketIntelligence
 from app.models.user_preferences import UserNotificationPreferences
 
 async def init_db():
@@ -55,7 +56,8 @@ async def init_db():
             Society,
             LocalityReview,
             PriceHistory,
-            UserNotificationPreferences
+            UserNotificationPreferences,
+            MarketIntelligence
         ]
     )
 

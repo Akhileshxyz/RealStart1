@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel
 from app.api import deps
 from app.models.landmark import Landmark
+from app.models.market_intelligence import MarketIntelligence
+from app.schemas.market_intelligence import MarketIntelligenceSummary
 from app.models.review import Review, ReviewEntityType
 from app.models.project import Project, ProjectStatus
 from app.core.config import settings
@@ -185,7 +187,48 @@ async def resolve_location(
             "message": "Created new landmark (Mappls Enriched)" if mappls_data else "Created new landmark (Fallback)"
         }
 
-# --- 2. Canonical Details API ---
+# --- 2. Market Intelligence API ---
+
+@router.get("/market-intelligence", response_model=List[MarketIntelligenceSummary])
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def list_market_intelligence_public() -> Any:
+    """
+    Public API to list all cities/localities with market intelligence.
+    Returns basic info (landmark_id, name, city).
+    """
+    intelligence_list = await MarketIntelligence.find_all().to_list()
+    
+    # Enrich with Landmark names
+    enriched = []
+    for intel in intelligence_list:
+        landmark = await Landmark.get(intel.landmark_id)
+        if landmark:
+            enriched.append({
+                "landmark_id": intel.landmark_id,
+                "name": landmark.name,
+                "city": landmark.city,
+                "overview": intel.overview[:150] + "..." if len(intel.overview) > 150 else intel.overview,
+                "appreciation_potential": intel.appreciation_potential_5yr
+            })
+    return enriched
+
+@router.get("/market-intelligence/{landmark_id}", response_model=Any)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_market_intelligence_public(landmark_id: UUID) -> Any:
+    """
+    Public API for detailed city/locality market intelligence.
+    """
+    intelligence = await MarketIntelligence.find_one(
+        MarketIntelligence.landmark_id == landmark_id
+    )
+    if not intelligence:
+        raise HTTPException(
+            status_code=404, 
+            detail="Market intelligence not found for this locality"
+        )
+    return intelligence
+
+# --- 3. Canonical Details API ---
 
 @router.get("/{landmark_id}", response_model=Any)
 @cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
@@ -472,3 +515,4 @@ async def get_locality_graph_dashboard(landmark_id: UUID = Query(...)) -> Any:
         },
         "investment_score": 8.5 # out of 10
     }
+
