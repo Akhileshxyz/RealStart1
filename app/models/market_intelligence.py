@@ -7,6 +7,8 @@ from pydantic import Field
 class MarketIntelligence(Document):
     id: UUID = Field(default_factory=uuid4)
     landmark_id: UUID  # Reference to the City/Locality Landmark
+    parent_landmark_id: Optional[UUID] = None # Reference to Parent City (if this is an area)
+    location_type: str = Field(default="city") # "city" or "area"
     
     overview: str
     
@@ -45,5 +47,6 @@ class MarketIntelligence(Document):
     class Settings:
         name = "market_intelligence"
         indexes = [
-            "landmark_id"
+            "landmark_id",
+            "parent_landmark_id"
         ]

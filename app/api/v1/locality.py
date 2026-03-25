@@ -1,11 +1,17 @@
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Tuple
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel
 from app.api import deps
 from app.models.landmark import Landmark
 from app.models.market_intelligence import MarketIntelligence
-from app.schemas.market_intelligence import MarketIntelligenceSummary
+from app.schemas.market_intelligence import (
+    MarketCityListItem,
+    MarketAreaSummary,
+    MarketIntelligenceDetailPublic,
+    BoxContentSection,
+    ParentCityRef,
+)
 from app.models.review import Review, ReviewEntityType
 from app.models.project import Project, ProjectStatus
 from app.core.config import settings
@@ -13,10 +19,91 @@ from datetime import datetime
 import httpx
 import logging
 from app.utils.cache import cache_public_data
+from app.utils.json_sanitize import sanitize_json, sanitize_map_landmarks, sanitize_str
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def lat_lng_from_landmark(landmark: Landmark) -> Tuple[Optional[float], Optional[float]]:
+    """Prefer explicit latitude/longitude; else GeoJSON Point coordinates [lng, lat]."""
+    if landmark.latitude is not None and landmark.longitude is not None:
+        return landmark.latitude, landmark.longitude
+    loc = landmark.location
+    if loc and loc.coordinates and len(loc.coordinates) >= 2:
+        return loc.coordinates[1], loc.coordinates[0]
+    return None, None
+
+
+async def _area_summaries_for_city(city_landmark_id: UUID) -> List[MarketAreaSummary]:
+    rows: List[MarketAreaSummary] = []
+    intelligence_list = await MarketIntelligence.find(
+        MarketIntelligence.parent_landmark_id == city_landmark_id
+    ).to_list()
+    for intel in intelligence_list:
+        lm = await Landmark.get(intel.landmark_id)
+        if not lm:
+            continue
+        lat, lng = lat_lng_from_landmark(lm)
+        ov = sanitize_str(intel.overview)
+        short = ov[:150] + "..." if len(ov) > 150 else ov
+        rows.append(
+            MarketAreaSummary(
+                landmark_id=intel.landmark_id,
+                parent_landmark_id=intel.parent_landmark_id or city_landmark_id,
+                name=sanitize_str(lm.name),
+                city=sanitize_str(lm.city),
+                overview=short,
+                appreciation_potential=sanitize_str(intel.appreciation_potential_5yr),
+                latitude=lat,
+                longitude=lng,
+            )
+        )
+    return rows
+
+
+def _detail_public(
+    intel: MarketIntelligence,
+    landmark: Landmark,
+    areas: Optional[List[MarketAreaSummary]] = None,
+    parent_city: Optional[ParentCityRef] = None,
+) -> MarketIntelligenceDetailPublic:
+    lat, lng = lat_lng_from_landmark(landmark)
+    box = BoxContentSection(
+        avg_commercial_plot_price=float(intel.avg_commercial_plot_price),
+        avg_residential_plot_price=float(intel.avg_residential_plot_price),
+        avg_rental_2bhk=float(intel.avg_rental_2bhk),
+        economic_output=sanitize_str(intel.economic_output),
+        population=sanitize_str(intel.population),
+        appreciation_potential_5yr=sanitize_str(intel.appreciation_potential_5yr),
+    )
+    overview = sanitize_str(intel.overview)
+    return MarketIntelligenceDetailPublic(
+        id=intel.id,
+        landmark_id=intel.landmark_id,
+        parent_landmark_id=intel.parent_landmark_id,
+        parent_city=parent_city,
+        location_type=sanitize_str(intel.location_type),
+        name=sanitize_str(landmark.name),
+        city=sanitize_str(landmark.city),
+        latitude=lat,
+        longitude=lng,
+        market_overview=overview,
+        overview=overview,
+        box_content=box,
+        growth_history=sanitize_json(intel.growth_history) or [],
+        growth_prediction=sanitize_json(intel.growth_prediction) or [],
+        political_agenda=sanitize_json(intel.political_agenda) or {},
+        amenities=sanitize_json(intel.amenities) or [],
+        upcoming_projects=sanitize_json(intel.upcoming_projects) or [],
+        investment_landmarks=sanitize_json(intel.investment_landmarks) or [],
+        map_landmarks=sanitize_map_landmarks(intel.map_landmarks),
+        created_at=intel.created_at,
+        updated_at=intel.updated_at,
+        areas=areas,
+    )
+
 
 # --- Schemas ---
 
@@ -189,44 +276,120 @@ async def resolve_location(
 
 # --- 2. Market Intelligence API ---
 
-@router.get("/market-intelligence", response_model=List[MarketIntelligenceSummary])
+@router.get("/market-intelligence", response_model=List[MarketCityListItem])
 @cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
 async def list_market_intelligence_public() -> Any:
     """
-    Public API to list all cities/localities with market intelligence.
-    Returns basic info (landmark_id, name, city).
+    Cities with market intelligence first (note: city-level block).
+    Optional lat/lng from landmark when present for map center.
     """
-    intelligence_list = await MarketIntelligence.find_all().to_list()
-    
-    # Enrich with Landmark names
-    enriched = []
+    intelligence_list = await MarketIntelligence.find(MarketIntelligence.location_type == "city").to_list()
+    enriched: List[MarketCityListItem] = []
     for intel in intelligence_list:
         landmark = await Landmark.get(intel.landmark_id)
-        if landmark:
-            enriched.append({
-                "landmark_id": intel.landmark_id,
-                "name": landmark.name,
-                "city": landmark.city,
-                "overview": intel.overview[:150] + "..." if len(intel.overview) > 150 else intel.overview,
-                "appreciation_potential": intel.appreciation_potential_5yr
-            })
+        if not landmark:
+            continue
+        lat, lng = lat_lng_from_landmark(landmark)
+        ov_full = sanitize_str(intel.overview)
+        ov = ov_full[:150] + "..." if len(ov_full) > 150 else ov_full
+        enriched.append(
+            MarketCityListItem(
+                landmark_id=intel.landmark_id,
+                name=sanitize_str(landmark.name),
+                city=sanitize_str(landmark.city),
+                overview=ov,
+                appreciation_potential=sanitize_str(intel.appreciation_potential_5yr),
+                latitude=lat,
+                longitude=lng,
+            )
+        )
     return enriched
 
-@router.get("/market-intelligence/{landmark_id}", response_model=Any)
+@router.get("/market-intelligence/{landmark_id}", response_model=MarketIntelligenceDetailPublic)
 @cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
-async def get_market_intelligence_public(landmark_id: UUID) -> Any:
+async def get_market_intelligence_public(
+    landmark_id: UUID,
+    include_areas: bool = Query(
+        True,
+        description="When true and this row is a city, include sub-area summaries (names + optional lat/lng).",
+    ),
+) -> Any:
     """
-    Public API for detailed city/locality market intelligence.
+    City or area detail aligned with note sections: overview, box_content, history, prediction, agenda, amenities, projects, investment landmarks, map_landmarks.
+    For cities, set include_areas=false to omit the embedded area list (saves payload size).
     """
     intelligence = await MarketIntelligence.find_one(
         MarketIntelligence.landmark_id == landmark_id
     )
     if not intelligence:
         raise HTTPException(
-            status_code=404, 
-            detail="Market intelligence not found for this locality"
+            status_code=404,
+            detail="Market intelligence not found for this locality",
         )
-    return intelligence
+    landmark = await Landmark.get(landmark_id)
+    if not landmark:
+        raise HTTPException(status_code=404, detail="Landmark not found")
+
+    areas: Optional[List[MarketAreaSummary]] = None
+    if include_areas and intelligence.location_type == "city":
+        areas = await _area_summaries_for_city(landmark_id)
+
+    parent_city: Optional[ParentCityRef] = None
+    if intelligence.location_type == "area" and intelligence.parent_landmark_id:
+        pl = await Landmark.get(intelligence.parent_landmark_id)
+        if pl:
+            parent_city = ParentCityRef(
+                landmark_id=pl.id,
+                name=sanitize_str(pl.name),
+                city=sanitize_str(pl.city),
+            )
+
+    return _detail_public(
+        intelligence, landmark, areas=areas, parent_city=parent_city
+    )
+
+
+@router.get(
+    "/market-intelligence/areas/{landmark_id}",
+    response_model=MarketIntelligenceDetailPublic,
+)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def get_market_intelligence_area_detail_public(landmark_id: UUID) -> Any:
+    """
+    Individual **area** market intelligence (note: About → Box → history → prediction → amenities → upcoming → top spots).
+    Same payload shape as `GET /market-intelligence/{landmark_id}` for an area row; returns 404 if this landmark is not `location_type=area`.
+    """
+    intelligence = await MarketIntelligence.find_one(
+        MarketIntelligence.landmark_id == landmark_id
+    )
+    if not intelligence:
+        raise HTTPException(
+            status_code=404,
+            detail="Market intelligence not found for this locality",
+        )
+    if intelligence.location_type != "area":
+        raise HTTPException(
+            status_code=404,
+            detail="Not an area market intelligence record; use GET /market-intelligence/{landmark_id} for city detail",
+        )
+    landmark = await Landmark.get(landmark_id)
+    if not landmark:
+        raise HTTPException(status_code=404, detail="Landmark not found")
+
+    parent_city: Optional[ParentCityRef] = None
+    if intelligence.parent_landmark_id:
+        pl = await Landmark.get(intelligence.parent_landmark_id)
+        if pl:
+            parent_city = ParentCityRef(
+                landmark_id=pl.id,
+                name=sanitize_str(pl.name),
+                city=sanitize_str(pl.city),
+            )
+
+    return _detail_public(
+        intelligence, landmark, areas=None, parent_city=parent_city
+    )
+
 
 # --- 3. Canonical Details API ---
 
