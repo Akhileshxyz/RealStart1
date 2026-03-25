@@ -1,4 +1,7 @@
 import asyncio
+import shutil
+from pathlib import Path
+from datetime import datetime
 from uuid import uuid4
 from app.db.mongodb import init_db
 from app.models.landmark import Landmark
@@ -242,6 +245,19 @@ async def seed():
         city_intel = MarketIntelligence(**city_intel_data)
         await city_intel.insert()
         print("Inserted new City Market Intelligence data.")
+
+    # Copy default locality hero image (uploads/Frame 2147225768.png) → /uploads/localities/{city_id}.png
+    root = Path(__file__).resolve().parent.parent
+    src = root / "uploads" / "Frame 2147225768.png"
+    if src.is_file():
+        dest_dir = root / "uploads" / "localities"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"{city_landmark.id}.png"
+        shutil.copy2(src, dest)
+        city_landmark.image_url = f"/uploads/localities/{city_landmark.id}.png"
+        city_landmark.updated_at = datetime.utcnow()
+        await city_landmark.save()
+        print(f"Set city image_url -> {city_landmark.image_url}")
 
 if __name__ == "__main__":
     asyncio.run(seed())

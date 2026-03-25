@@ -1,11 +1,21 @@
 from typing import Any, List, Dict
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from pathlib import Path
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, UploadFile, File
 from app.api import deps
 from app.models.user import User
 from app.models.landmark import Landmark
 from app.schemas.landmark import PaginatedLandmarkResponse
+from app.core.config import settings
 from datetime import datetime
+
+_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 router = APIRouter()
 
@@ -78,6 +88,45 @@ async def update_landmark(
     landmark.updated_at = datetime.utcnow()
     await landmark.save()
     return landmark
+
+
+@router.post("/{landmark_id}/image", response_model=Landmark)
+async def upload_landmark_image(
+    landmark_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Upload a locality / market-intelligence hero image. Stored under /uploads/localities/{landmark_id}.ext
+    and `landmark.image_url` is set to the public path (use in GET /market-intelligence and related APIs).
+    """
+    landmark = await Landmark.get(landmark_id)
+    if not landmark:
+        raise HTTPException(status_code=404, detail="Landmark not found")
+
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="File must be an image (jpeg, png, webp, gif)",
+        )
+    ext = _ALLOWED_IMAGE_TYPES[content_type]
+    upload_root = Path(settings.UPLOAD_DIR)
+    localities_dir = upload_root / "localities"
+    localities_dir.mkdir(parents=True, exist_ok=True)
+
+    dest = localities_dir / f"{landmark_id}{ext}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(file.file, out)
+    finally:
+        await file.close()
+
+    landmark.image_url = f"/uploads/localities/{landmark_id}{ext}"
+    landmark.updated_at = datetime.utcnow()
+    await landmark.save()
+    return landmark
+
 
 @router.delete("/{landmark_id}")
 async def delete_landmark(

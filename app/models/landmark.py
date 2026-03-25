@@ -39,6 +39,8 @@ class Landmark(Document):
     # Additional metadata
     description: Optional[str] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    # Site-relative or absolute URL for locality card / market intelligence hero (e.g. /uploads/localities/xxx.png)
+    image_url: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

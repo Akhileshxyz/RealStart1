@@ -19,7 +19,7 @@ try:
         print("✓ Success! API returned valid data")
         print()
         print("Data summary:")
-        print(f"  - Overview: {data.get('overview', '')[:100]}...")
+        print(f"  - market_overview: {data.get('market_overview', '')[:100]}...")
         print(f"  - Location Type: {data.get('location_type')}")
         print(f"  - Appreciation Potential: {data.get('appreciation_potential_5yr')}")
         print(f"  - Growth History Records: {len(data.get('growth_history', []))}")

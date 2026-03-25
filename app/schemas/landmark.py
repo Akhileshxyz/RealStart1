@@ -10,6 +10,7 @@ class LandmarkSummary(BaseModel):
     city: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    image_url: Optional[str] = None
     avg_price_per_sqft: Optional[float] = None
     median_price: Optional[float] = None
     
@@ -35,6 +36,7 @@ class LandmarkCreate(BaseModel):
     
     description: Optional[str] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    image_url: Optional[str] = None
 
     @field_validator('latitude')
     @classmethod
@@ -69,6 +71,7 @@ class LandmarkResponse(BaseModel):
     
     description: Optional[str] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    image_url: Optional[str] = None
 
     nearby_projects: List[ProjectResponse] = []
     

@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -90,15 +90,45 @@ class MarketCityListItem(BaseModel):
     appreciation_potential: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Locality thumbnail/hero; site-relative /uploads/... or absolute URL.",
+    )
 
 
 class BoxContentSection(BaseModel):
-    """Sections 2.x in note — numeric lakhs + human-readable strings where stored."""
+    """Stats grid on city/area detail (format currency/units in the app)."""
+    avg_commercial_plot_price: float = Field(
+        ...,
+        description="Avg commercial land/plot — UI grid ‘commercial’ column.",
+    )
+    avg_residential_plot_price: float = Field(
+        ...,
+        description="Avg residential land/plot — UI grid ‘residential’ column.",
+    )
+    avg_rental_2bhk: float = Field(
+        ...,
+        description="Typical 2BHK monthly rent — UI rent column.",
+    )
+    economic_output: str = Field(
+        ...,
+        description="Economic / investment narrative (e.g. city-scale output) — optional extra stat row.",
+    )
+    population: str = Field(
+        ...,
+        description="Population or footfall line — optional extra stat row.",
+    )
+    appreciation_potential_5yr: str = Field(
+        ...,
+        description="5-year appreciation headline — UI growth / appreciation tile.",
+    )
+
+
+class AreaBoxContentSection(BaseModel):
+    """Four stat cards for area MI screen only (no economic_output / population)."""
     avg_commercial_plot_price: float
     avg_residential_plot_price: float
     avg_rental_2bhk: float
-    economic_output: str
-    population: str
     appreciation_potential_5yr: str
 
 
@@ -107,6 +137,7 @@ class ParentCityRef(BaseModel):
     landmark_id: UUID
     name: str
     city: str
+    image_url: Optional[str] = None
 
 
 class MarketAreaSummary(BaseModel):
@@ -119,13 +150,27 @@ class MarketAreaSummary(BaseModel):
     appreciation_potential: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    image_url: Optional[str] = None
 
 
 class MarketIntelligenceDetailPublic(BaseModel):
     """
-    City or area detail. Maps to note sections:
-    - City: overview → box → history → prediction → political & infrastructure → amenities → upcoming → top investment landmarks → map landmarks (+ optional `areas`).
-    - Area: same fields; use `investment_landmarks` as “Top spots to invest nearby”; `map_landmarks` often empty; `political_agenda` may be empty; `parent_city` set when area.
+    Payload for `GET /api/v1/locality/market-intelligence/{landmark_id}` (city or area detail screen).
+
+    UI mapping (RealStart market intelligence page):
+    - Header / title: `name`, `city`
+    - Map pins & tooltips: `map_landmarks` (name, price, growth, optional lat/lng, landmark_id)
+    - Welcome + intro copy: `market_overview`
+    - Key stats grid: `box_content`
+    - “Last 5 years” chart: `growth_history` (year, price, reason)
+    - “Next 5 years” chart: `growth_prediction`
+    - Political & infrastructure: `political_agenda` (e.g. mla, mp, governance, focus[])
+    - Key amenities row: `amenities`
+    - Upcoming developments list: `upcoming_projects`
+    - “Top landmarks / micro-markets to invest”: `investment_landmarks`
+    - City only — sub-area chips / “More details” targets: `areas` (each row has landmark_id for area detail route)
+
+    Not in this resource: featured project cards (“Top developed layouts”) — use projects/inventory APIs.
     """
     id: UUID
     landmark_id: UUID
@@ -136,19 +181,122 @@ class MarketIntelligenceDetailPublic(BaseModel):
     city: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    market_overview: str
-    overview: str
+    image_url: Optional[str] = Field(
+        None,
+        description="Locality image from landmark.image_url.",
+    )
+    market_overview: str = Field(..., description="Primary long-form intro for the page.")
     box_content: BoxContentSection
-    growth_history: List[Dict[str, Any]]
-    growth_prediction: List[Dict[str, Any]]
-    political_agenda: Dict[str, Any]
-    amenities: List[str]
-    upcoming_projects: List[str]
-    investment_landmarks: List[Dict[str, Any]]
-    map_landmarks: List[Dict[str, Any]]
+    growth_history: List[Dict[str, Any]] = Field(
+        ...,
+        description="Series for the ‘Last 5 years’ price chart; items use year, price, reason.",
+    )
+    growth_prediction: List[Dict[str, Any]] = Field(
+        ...,
+        description="Series for the ‘Next 5 years’ forecast chart.",
+    )
+    political_agenda: Dict[str, Any] = Field(
+        ...,
+        description="Bullets for political & infrastructure agenda (structure: mla, mp, governance, focus).",
+    )
+    amenities: List[str] = Field(
+        ...,
+        description="Key amenities labels for icon row (hospital, schools, etc.).",
+    )
+    upcoming_projects: List[str] = Field(
+        ...,
+        description="Upcoming development / infra project lines.",
+    )
+    investment_landmarks: List[Dict[str, Any]] = Field(
+        ...,
+        description="Sub-locality / micro-market investment rows (name, residential, commercial, rental, growth).",
+    )
+    map_landmarks: List[Dict[str, Any]] = Field(
+        ...,
+        description="Pins on the map: name, price, growth, optional latitude, longitude, landmark_id.",
+    )
     created_at: datetime
     updated_at: datetime
-    areas: Optional[List[MarketAreaSummary]] = None
+    areas: Optional[List[MarketAreaSummary]] = Field(
+        None,
+        description="Present for city rows when include_areas=true: sub-areas for tabs / drill-down.",
+    )
+
+
+class UpcomingDevelopmentItem(BaseModel):
+    """Single row in ‘Upcoming developments’ (title + optional subtitle)."""
+    title: str
+    detail: Optional[str] = None
+
+
+class AreaDevelopedLayoutPublic(BaseModel):
+    """Card in ‘Top developed layouts near [landmark]’ horizontal list."""
+    project_id: UUID
+    name: str
+    slug: str
+    cover_image: Optional[str] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    approval_badge: Optional[str] = None
+    location_hint: Optional[str] = None
+
+
+class AreaComparisonHintPublic(BaseModel):
+    """‘Compare this landmark market’ strip — benchmark vs parent city."""
+    current_label: str = Field(..., description="Usually the area / landmark display name.")
+    price_per_sqft_hint: Optional[float] = Field(
+        None,
+        description="From landmark.avg_price_per_sqft when set; else null.",
+    )
+    parent_city_landmark_id: Optional[UUID] = Field(
+        None,
+        description="Use for city benchmark / compare dropdown.",
+    )
+
+
+class MarketIntelligenceAreaDetailPublic(BaseModel):
+    """
+    **Only** for `GET /api/v1/locality/market-intelligence/areas/{landmark_id}` — area Market Intelligence screen.
+
+    UI mapping:
+    - Welcome + context: `name`, optional `zone` (e.g. “Manyata Tech Park surroundings”)
+    - About: `market_overview`
+    - Four stat cards: `box_content` (commercial, residential, rent, appreciation — no economic/population)
+    - Top developed layouts carousel: `top_developed_layouts` (approved projects on this landmark)
+    - Last / next 5 years charts: `growth_history`, `growth_prediction`
+    - Key amenities: `amenities`
+    - Top spots list: `top_spots_to_invest` (same source as investment_landmarks)
+    - Upcoming: `upcoming_developments` (title + detail lines)
+    - Compare strip: `comparison`
+    """
+    id: UUID
+    landmark_id: UUID
+    parent_landmark_id: Optional[UUID] = None
+    parent_city: Optional[ParentCityRef] = None
+    location_type: Literal["area"] = "area"
+    name: str
+    city: str
+    zone: Optional[str] = Field(None, description="Subheading under welcome — from landmark.zone.")
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Area/locality thumbnail from landmark.image_url.",
+    )
+    market_overview: str = Field(..., description="‘About this landmark market’ body copy.")
+    box_content: AreaBoxContentSection
+    growth_history: List[Dict[str, Any]]
+    growth_prediction: List[Dict[str, Any]]
+    amenities: List[str]
+    upcoming_developments: List[UpcomingDevelopmentItem]
+    top_spots_to_invest: List[Dict[str, Any]] = Field(
+        ...,
+        description="Nearby micro-markets (name, residential, commercial, rental, growth, etc.).",
+    )
+    top_developed_layouts: List[AreaDevelopedLayoutPublic]
+    comparison: AreaComparisonHintPublic
+    created_at: datetime
+    updated_at: datetime
 
 
 class MarketIntelligenceResponse(MarketIntelligenceBase):

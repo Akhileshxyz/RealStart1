@@ -44,7 +44,7 @@ async def test_apis():
         area_details = resp.json()
         print(f"Status: {resp.status_code}")
         print(f"Name expected: Near Doddaballapura Bus Stand")
-        print(f"Overview snippet: {area_details.get('overview')[:50]}...")
+        print(f"Overview snippet: {area_details.get('market_overview', '')[:50]}...")
         box = area_details.get("box_content") or {}
         print(f"Avg Comm Price: {box.get('avg_commercial_plot_price')}")
 

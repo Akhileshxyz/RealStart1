@@ -9,8 +9,13 @@ from app.schemas.market_intelligence import (
     MarketCityListItem,
     MarketAreaSummary,
     MarketIntelligenceDetailPublic,
+    MarketIntelligenceAreaDetailPublic,
     BoxContentSection,
+    AreaBoxContentSection,
     ParentCityRef,
+    UpcomingDevelopmentItem,
+    AreaDevelopedLayoutPublic,
+    AreaComparisonHintPublic,
 )
 from app.models.review import Review, ReviewEntityType
 from app.models.project import Project, ProjectStatus
@@ -20,6 +25,7 @@ import httpx
 import logging
 from app.utils.cache import cache_public_data
 from app.utils.json_sanitize import sanitize_json, sanitize_map_landmarks, sanitize_str
+from app.utils.media import public_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,7 @@ async def _area_summaries_for_city(city_landmark_id: UUID) -> List[MarketAreaSum
                 appreciation_potential=sanitize_str(intel.appreciation_potential_5yr),
                 latitude=lat,
                 longitude=lng,
+                image_url=public_image_url(getattr(lm, "image_url", None)),
             )
         )
     return rows
@@ -89,8 +96,8 @@ def _detail_public(
         city=sanitize_str(landmark.city),
         latitude=lat,
         longitude=lng,
+        image_url=public_image_url(getattr(landmark, "image_url", None)),
         market_overview=overview,
-        overview=overview,
         box_content=box,
         growth_history=sanitize_json(intel.growth_history) or [],
         growth_prediction=sanitize_json(intel.growth_prediction) or [],
@@ -102,6 +109,102 @@ def _detail_public(
         created_at=intel.created_at,
         updated_at=intel.updated_at,
         areas=areas,
+    )
+
+
+def _upcoming_strings_to_items(lines: List[Any]) -> List[UpcomingDevelopmentItem]:
+    out: List[UpcomingDevelopmentItem] = []
+    for raw in lines:
+        s = sanitize_str(raw)
+        if not s:
+            continue
+        if " - " in s:
+            a, b = s.split(" - ", 1)
+            out.append(UpcomingDevelopmentItem(title=a.strip(), detail=b.strip()))
+        else:
+            out.append(UpcomingDevelopmentItem(title=s, detail=None))
+    return out
+
+
+async def _area_top_developed_layouts(landmark_id: UUID) -> List[AreaDevelopedLayoutPublic]:
+    projects = await Project.find(
+        Project.landmark_id == landmark_id,
+        Project.status == ProjectStatus.APPROVED,
+        Project.is_hidden == False,
+    ).limit(15).to_list()
+    cards: List[AreaDevelopedLayoutPublic] = []
+    for p in projects:
+        cover = p.gallery_images[0] if p.gallery_images else None
+        badge = None
+        if p.approval_type is not None:
+            badge = getattr(p.approval_type, "value", str(p.approval_type))
+        loc = (p.address or p.landmark or "").strip()
+        cards.append(
+            AreaDevelopedLayoutPublic(
+                project_id=p.id,
+                name=sanitize_str(p.name),
+                slug=sanitize_str(p.slug),
+                cover_image=cover,
+                min_price=p.min_price,
+                max_price=p.max_price,
+                approval_badge=badge,
+                location_hint=sanitize_str(loc) if loc else None,
+            )
+        )
+    return cards
+
+
+async def build_market_intelligence_area_detail(
+    intelligence: MarketIntelligence,
+    landmark: Landmark,
+    parent_city: Optional[ParentCityRef],
+) -> MarketIntelligenceAreaDetailPublic:
+    """Response shape for GET .../market-intelligence/areas/{landmark_id} only."""
+    lat, lng = lat_lng_from_landmark(landmark)
+    overview = sanitize_str(intelligence.overview)
+    area_box = AreaBoxContentSection(
+        avg_commercial_plot_price=float(intelligence.avg_commercial_plot_price),
+        avg_residential_plot_price=float(intelligence.avg_residential_plot_price),
+        avg_rental_2bhk=float(intelligence.avg_rental_2bhk),
+        appreciation_potential_5yr=sanitize_str(intelligence.appreciation_potential_5yr),
+    )
+    upcoming_raw = sanitize_json(intelligence.upcoming_projects) or []
+    upcoming_list = upcoming_raw if isinstance(upcoming_raw, list) else []
+    upcoming_items = _upcoming_strings_to_items(upcoming_list)
+
+    layouts = await _area_top_developed_layouts(landmark.id)
+    comparison = AreaComparisonHintPublic(
+        current_label=sanitize_str(landmark.name),
+        price_per_sqft_hint=landmark.avg_price_per_sqft,
+        parent_city_landmark_id=intelligence.parent_landmark_id,
+    )
+    z = landmark.zone
+    zone_val = sanitize_str(z) if z else None
+    if zone_val == "":
+        zone_val = None
+
+    return MarketIntelligenceAreaDetailPublic(
+        id=intelligence.id,
+        landmark_id=intelligence.landmark_id,
+        parent_landmark_id=intelligence.parent_landmark_id,
+        parent_city=parent_city,
+        name=sanitize_str(landmark.name),
+        city=sanitize_str(landmark.city),
+        zone=zone_val,
+        latitude=lat,
+        longitude=lng,
+        image_url=public_image_url(getattr(landmark, "image_url", None)),
+        market_overview=overview,
+        box_content=area_box,
+        growth_history=sanitize_json(intelligence.growth_history) or [],
+        growth_prediction=sanitize_json(intelligence.growth_prediction) or [],
+        amenities=sanitize_json(intelligence.amenities) or [],
+        upcoming_developments=upcoming_items,
+        top_spots_to_invest=sanitize_json(intelligence.investment_landmarks) or [],
+        top_developed_layouts=layouts,
+        comparison=comparison,
+        created_at=intelligence.created_at,
+        updated_at=intelligence.updated_at,
     )
 
 
@@ -301,6 +404,7 @@ async def list_market_intelligence_public() -> Any:
                 appreciation_potential=sanitize_str(intel.appreciation_potential_5yr),
                 latitude=lat,
                 longitude=lng,
+                image_url=public_image_url(getattr(landmark, "image_url", None)),
             )
         )
     return enriched
@@ -342,6 +446,7 @@ async def get_market_intelligence_public(
                 landmark_id=pl.id,
                 name=sanitize_str(pl.name),
                 city=sanitize_str(pl.city),
+                image_url=public_image_url(getattr(pl, "image_url", None)),
             )
 
     return _detail_public(
@@ -351,13 +456,13 @@ async def get_market_intelligence_public(
 
 @router.get(
     "/market-intelligence/areas/{landmark_id}",
-    response_model=MarketIntelligenceDetailPublic,
+    response_model=MarketIntelligenceAreaDetailPublic,
 )
 @cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
 async def get_market_intelligence_area_detail_public(landmark_id: UUID) -> Any:
     """
-    Individual **area** market intelligence (note: About → Box → history → prediction → amenities → upcoming → top spots).
-    Same payload shape as `GET /market-intelligence/{landmark_id}` for an area row; returns 404 if this landmark is not `location_type=area`.
+    Area Market Intelligence screen only: welcome + zone, about, stat grid, layouts carousel,
+    charts, amenities, top spots, upcoming (title/detail), compare hint. Not the same shape as city GET.
     """
     intelligence = await MarketIntelligence.find_one(
         MarketIntelligence.landmark_id == landmark_id
@@ -384,10 +489,11 @@ async def get_market_intelligence_area_detail_public(landmark_id: UUID) -> Any:
                 landmark_id=pl.id,
                 name=sanitize_str(pl.name),
                 city=sanitize_str(pl.city),
+                image_url=public_image_url(getattr(pl, "image_url", None)),
             )
 
-    return _detail_public(
-        intelligence, landmark, areas=None, parent_city=parent_city
+    return await build_market_intelligence_area_detail(
+        intelligence, landmark, parent_city
     )
 
 
@@ -418,6 +524,7 @@ async def get_locality_details(landmark_id: UUID) -> Any:
         "zone": landmark.zone,
         "description": landmark.description,
         "location": landmark.location,
+        "image_url": public_image_url(getattr(landmark, "image_url", None)),
         "rating": round(avg_rating, 1),
         "review_count": len(reviews),
         "about_text": f"A prime residential area in {landmark.city} with great connectivity."
