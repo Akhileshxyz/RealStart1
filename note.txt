@@ -1,0 +1,38 @@
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+You'll need an admin API to create/manage blogs and to toggle is_featured on projects. Want me to build those too?
+
+✅ Full API Reference
+Auth APIs
+Method	Endpoint	Description
+POST	/api/v1/auth/login	Login — now includes saved_properties in user object
+GET	/api/v1/auth/me	Current user — includes saved_properties: [UUID, ...]
+Public Homepage APIs (no auth)
+Method	Endpoint	Cache	Description
+GET	/api/v1/public/featured-cities?limit=10	1hr	City cards for CitySelector
+GET	/api/v1/public/featured-projects?limit=6	30min	Featured project cards
+GET	/api/v1/public/blogs?limit=3&category=Commercial	15min	Latest blogs
+Admin Blog APIs (admin auth required)
+Method	Endpoint	Description
+GET	/api/v1/admin/blogs?is_published=true&category=...	List all blogs (with filters)
+POST	/api/v1/admin/blogs	Create a blog post
+GET	/api/v1/admin/blogs/{id}	Get single blog (inc. draft content)
+PUT	/api/v1/admin/blogs/{id}	Update blog
+PATCH	/api/v1/admin/blogs/{id}/publish	Toggle published/draft
+DELETE	/api/v1/admin/blogs/{id}	Delete permanently
+Admin Project APIs (new endpoint)
+Method	Endpoint	Description
+PATCH	/api/v1/admin/projects/{id}/feature	Toggle is_featured on/off
+Blog Create Payload
+json
+{
+  "title": "Emerging Trends in Commercial Spaces",
+  "description": "How hybrid work models are shaping the future of offices...",
+  "content": "<full HTML body>",
+  "category": "Commercial",
+  "tag": "Trending",
+  "bg_color": "#1a2230",
+  "accent_color": "#94a3b8",
+  "image_url": "/uploads/blogs/image.jpg",
+  "author_name": "Realstart Editorial",
+  "is_published": true

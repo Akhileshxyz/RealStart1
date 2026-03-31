@@ -40,6 +40,8 @@ class User(Document):
     age: Optional[int] = None
     gender: Optional[Gender] = None
     engagement_score: int = 0
+    photo_url: Optional[str] = None
+    region: Optional[str] = None
     
     @property
     def engagement_level(self) -> str:

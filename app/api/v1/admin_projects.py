@@ -148,6 +148,29 @@ async def reject_project(
     await invalidate_project_cache(project_id=project.id, slug=project.slug)
 
     return project
+
+@router.patch("/{project_id}/feature", response_model=ProjectResponse)
+async def toggle_featured_project(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Toggle the `is_featured` flag on a project.
+    Featured projects appear in the homepage Featured Projects section.
+    Invalidates both the project cache and the public featured-projects cache.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.is_featured = not project.is_featured
+    await project.save()
+
+    # Invalidate project cache + featured-projects homepage cache
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+    from app.core.redis_client import redis_client
+    await redis_client.delete_pattern(redis_client.make_key("public", "featured_projects", "*"))
+
     return project
 
 # --- Communication Logging ---

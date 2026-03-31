@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, field_validator
 from app.models.user import UserRole
@@ -70,6 +70,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    saved_properties: List[UUID] = []
 
     class Config:
         from_attributes = True

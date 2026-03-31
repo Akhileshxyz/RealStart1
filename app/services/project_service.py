@@ -113,6 +113,7 @@ async def get_project_by_id(
 async def get_approved_projects(
     skip: int = 0,
     limit: int = 20,
+    landmark_id: Optional[UUID] = None,
     use_cache: bool = True
 ):
     """
@@ -127,6 +128,8 @@ async def get_approved_projects(
         List of approved Project objects
     """
     cache_key = redis_client.make_key("public", "projects", "approved", str(skip), str(limit))
+    if landmark_id:
+        cache_key = f"{cache_key}:landmark:{landmark_id}"
 
     # Try cache first if enabled
     if use_cache:
@@ -136,11 +139,16 @@ async def get_approved_projects(
             return [Project(**p) for p in cached_projects]
 
     # Cache miss - query database
-    logger.debug(f"Approved projects cache MISS (skip={skip}, limit={limit})")
-    projects = await Project.find(
+    logger.debug(f"Approved projects cache MISS (skip={skip}, limit={limit}, landmark={landmark_id})")
+    
+    query_filters = [
         Project.status == ProjectStatus.APPROVED,
         Project.is_hidden == False
-    ).skip(skip).limit(limit).to_list()
+    ]
+    if landmark_id:
+        query_filters.append(Project.landmark_id == landmark_id)
+        
+    projects = await Project.find(*query_filters).skip(skip).limit(limit).to_list()
 
     # Cache the results
     if projects and use_cache:

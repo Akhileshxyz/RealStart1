@@ -12,6 +12,7 @@ class MarketPredictionItem(BaseModel):
     year: int
     price: float
     reason: str
+    benchmark_price: Optional[float] = None
 
 class PoliticalAgenda(BaseModel):
     mla: str
@@ -25,6 +26,7 @@ class InvestmentLandmark(BaseModel):
     commercial: float
     rental: str
     growth: float
+    image_url: Optional[str] = None
 
 class MapLandmark(BaseModel):
     name: str
@@ -42,16 +44,21 @@ class MarketIntelligenceBase(BaseModel):
     avg_commercial_plot_price: float
     avg_residential_plot_price: float
     avg_rental_2bhk: float
+    avg_rental_yield: Optional[str] = None
     economic_output: str
     population: str
     appreciation_potential_5yr: str
     growth_history: List[MarketHistoryItem]
     growth_prediction: List[MarketPredictionItem]
     political_agenda: PoliticalAgenda
-    amenities: List[str]
+    amenities: List[Dict[str, Any]]
     upcoming_projects: List[str]
     investment_landmarks: List[InvestmentLandmark]
     map_landmarks: List[MapLandmark]
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    report_download_url: Optional[str] = None
+    expert_contact_id: Optional[UUID] = None
 
 class MarketIntelligenceCreate(MarketIntelligenceBase):
     pass
@@ -63,16 +70,21 @@ class MarketIntelligenceUpdate(BaseModel):
     avg_commercial_plot_price: Optional[float] = None
     avg_residential_plot_price: Optional[float] = None
     avg_rental_2bhk: Optional[float] = None
+    avg_rental_yield: Optional[str] = None
     economic_output: Optional[str] = None
     population: Optional[str] = None
     appreciation_potential_5yr: Optional[str] = None
     growth_history: Optional[List[MarketHistoryItem]] = None
     growth_prediction: Optional[List[MarketPredictionItem]] = None
     political_agenda: Optional[PoliticalAgenda] = None
-    amenities: Optional[List[str]] = None
+    amenities: Optional[List[Dict[str, Any]]] = None
     upcoming_projects: Optional[List[str]] = None
     investment_landmarks: Optional[List[InvestmentLandmark]] = None
     map_landmarks: Optional[List[MapLandmark]] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    report_download_url: Optional[str] = None
+    expert_contact_id: Optional[UUID] = None
 
 class MarketIntelligenceSummary(BaseModel):
     landmark_id: UUID
@@ -110,6 +122,10 @@ class BoxContentSection(BaseModel):
         ...,
         description="Typical 2BHK monthly rent — UI rent column.",
     )
+    avg_rental_yield: Optional[str] = Field(
+        None,
+        description="Average rental yield.",
+    )
     economic_output: str = Field(
         ...,
         description="Economic / investment narrative (e.g. city-scale output) — optional extra stat row.",
@@ -129,6 +145,7 @@ class AreaBoxContentSection(BaseModel):
     avg_commercial_plot_price: float
     avg_residential_plot_price: float
     avg_rental_2bhk: float
+    avg_rental_yield: Optional[str] = None
     appreciation_potential_5yr: str
 
 
@@ -181,6 +198,8 @@ class MarketIntelligenceDetailPublic(BaseModel):
     city: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    report_download_url: Optional[str] = None
+    expert_contact_id: Optional[UUID] = None
     image_url: Optional[str] = Field(
         None,
         description="Locality image from landmark.image_url.",
@@ -199,9 +218,9 @@ class MarketIntelligenceDetailPublic(BaseModel):
         ...,
         description="Bullets for political & infrastructure agenda (structure: mla, mp, governance, focus).",
     )
-    amenities: List[str] = Field(
+    amenities: List[Dict[str, Any]] = Field(
         ...,
-        description="Key amenities labels for icon row (hospital, schools, etc.).",
+        description="Key amenities array of objects (name, icon_url).",
     )
     upcoming_projects: List[str] = Field(
         ...,
@@ -279,6 +298,8 @@ class MarketIntelligenceAreaDetailPublic(BaseModel):
     zone: Optional[str] = Field(None, description="Subheading under welcome — from landmark.zone.")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    report_download_url: Optional[str] = None
+    expert_contact_id: Optional[UUID] = None
     image_url: Optional[str] = Field(
         None,
         description="Area/locality thumbnail from landmark.image_url.",
@@ -287,7 +308,7 @@ class MarketIntelligenceAreaDetailPublic(BaseModel):
     box_content: AreaBoxContentSection
     growth_history: List[Dict[str, Any]]
     growth_prediction: List[Dict[str, Any]]
-    amenities: List[str]
+    amenities: List[Dict[str, Any]]
     upcoming_developments: List[UpcomingDevelopmentItem]
     top_spots_to_invest: List[Dict[str, Any]] = Field(
         ...,

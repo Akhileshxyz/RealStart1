@@ -73,6 +73,22 @@ async def get_current_active_admin(
         )
     return current_user
 
+async def get_current_active_team_member(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    # Admin and team members (SALES, MARKETING, MANAGER, ADMIN, SUPER_ADMIN)
+    if current_user.role not in [
+        UserRole.ADMIN, 
+        UserRole.SUPER_ADMIN, 
+        UserRole.SALES, 
+        UserRole.MARKETING, 
+        UserRole.MANAGER
+    ]:
+         raise HTTPException(
+            status_code=403, detail="Only admin and team members can perform this action"
+        )
+    return current_user
+
 async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)) -> Optional[User]:
     try:
         token = credentials.credentials

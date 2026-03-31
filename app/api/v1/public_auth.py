@@ -8,7 +8,10 @@ from app.api import deps
 from app.core import security
 from app.models.user import User, UserRole
 from app.models.developer import Developer
-from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse
+from app.models.lead import ProjectLead
+from app.core.redis_client import redis_client
+from fastapi.security import HTTPAuthorizationCredentials
+from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse, Message
 from app.schemas.developer import DeveloperCreate, DeveloperResponse
 
 router = APIRouter()
@@ -66,6 +69,13 @@ async def login_access_token(
             detail="Access forbidden from this portal. Please use the administrative portal."
         )
 
+    leads = await ProjectLead.find(
+        ProjectLead.user_id == user.id,
+        ProjectLead.is_wishlisted == True
+    ).to_list()
+    
+    saved_properties = [lead.project_id for lead in leads]
+
     return {
         "access_token": security.create_access_token(user.id),
         "token_type": "bearer",
@@ -74,7 +84,8 @@ async def login_access_token(
             email=user.email,
             full_name=user.full_name,
             role=user.role,
-            is_active=user.is_active
+            is_active=user.is_active,
+            saved_properties=saved_properties
         )
     }
 
@@ -85,5 +96,34 @@ async def read_users_me(
     """
     Get current user.
     """
-    return current_user
+    leads = await ProjectLead.find(
+        ProjectLead.user_id == current_user.id,
+        ProjectLead.is_wishlisted == True
+    ).to_list()
+    
+    saved_properties = [lead.project_id for lead in leads]
+    
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        saved_properties=saved_properties
+    )
+
+@router.post("/logout", response_model=Message)
+async def logout_public_user(
+    current_user: User = Depends(deps.get_current_user),
+    token: HTTPAuthorizationCredentials = Depends(deps.security_scheme)
+) -> Any:
+    """
+    Logout.
+    Blacklists the current access token in Redis.
+    """
+    token_str = token.credentials
+    # Default blacklist TTL 7 days (604800 seconds)
+    await redis_client.set(f"blacklist:token:{token_str}", "true", ttl=60*60*24*7)
+    
+    return {"message": "Successfully logged out"}
     

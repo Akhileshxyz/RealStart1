@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = "realstart_db"
 
     # File Upload
-    MAX_FILE_SIZE: int = 10485760  # 10MB
+    MAX_FILE_SIZE: int = 104857600  # 100MB
     UPLOAD_DIR: str = "./uploads"
 
     # Server

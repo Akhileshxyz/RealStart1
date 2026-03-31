@@ -42,7 +42,13 @@ from app.api.v1 import (
     lawyer_settings,
     lawyer_settings,
     lawyer_properties,
-    admin_market_intelligence
+    admin_market_intelligence,
+    user_notifications,
+    wishlist,
+    public_home,
+    admin_blogs,
+    admin_reels,
+    user_reels
 )
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
@@ -76,6 +82,7 @@ async def lifespan(app: FastAPI):
 tags_metadata = [
     {"name": "Authentication", "description": "User login and registration."},
     {"name": "Public Projects", "description": "Publicly accessible project listings."},
+    {"name": "Public - Home", "description": "Homepage feed APIs: featured cities, featured projects, and latest blogs."},
     {"name": "User - Profile", "description": "User profile management and information."},
     {"name": "User - History & Wishlist", "description": "View history and wishlist management."},
     {"name": "User - Landmarks", "description": "Market analyzer and landmark information."},
@@ -98,6 +105,7 @@ tags_metadata = [
     {"name": "Admin - Team", "description": "Internal team and staff management."},
     {"name": "Admin - Landmarks", "description": "Admin landmark creation and management."},
     {"name": "Admin - Videos", "description": "Video content management and analytics."},
+    {"name": "Admin - Blogs", "description": "Blog post creation, editing, publishing, and deletion."},
     {"name": "Locality", "description": "Map-based Locality Intelligence APIs (Mappls integration)."},
     {"name": "Developer - Authentication", "description": "Login and password management for Developers."},
     {"name": "Settings", "description": "User settings for all user types - Password change and Profile management."},
@@ -108,6 +116,8 @@ tags_metadata = [
     {"name": "Lawyer - Schedule", "description": "Lawyer appointment and consultation scheduling."},
     {"name": "Lawyer - Analytics", "description": "Case and performance analytics for lawyers."},
     {"name": "Lawyer - Settings", "description": "Lawyer profile and availability settings."},
+    {"name": "Reels", "description": "Short video content feed and interactions."},
+    {"name": "Admin - Reels", "description": "Admin/Team management for short video content (reels)."},
 ]
 
 app = FastAPI(
@@ -142,8 +152,12 @@ app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 # 1. Public APIs
 app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
 app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Projects"])
+app.include_router(public_home.router, prefix=f"{settings.API_V1_STR}/public", tags=["Public - Home"])
 app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}")
 app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["User - Interactions"])
+app.include_router(user_notifications.router, prefix=f"{settings.API_V1_STR}", tags=["User - Notifications"])
+app.include_router(wishlist.router, prefix=f"{settings.API_V1_STR}/wishlist", tags=["User - Wishlist"])
+app.include_router(user_reels.router, prefix=f"{settings.API_V1_STR}/reels", tags=["Reels"])
 
 # 2. Developer Portal
 app.include_router(developer_auth.router, prefix=f"{settings.API_V1_STR}/developers/auth", tags=["Developer - Authentication"])
@@ -167,6 +181,8 @@ app.include_router(admin_ads.router, prefix=f"{settings.API_V1_STR}/admin/ads", 
 app.include_router(admin_team.router, prefix=f"{settings.API_V1_STR}/admin/team", tags=["Admin - Team"])
 app.include_router(admin_landmarks.router, prefix=f"{settings.API_V1_STR}/admin/landmarks", tags=["Admin - Landmarks"])
 app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/videos", tags=["Admin - Videos"])
+app.include_router(admin_blogs.router, prefix=f"{settings.API_V1_STR}/admin/blogs", tags=["Admin - Blogs"])
+app.include_router(admin_reels.router, prefix=f"{settings.API_V1_STR}/admin/reels", tags=["Admin - Reels"])
 app.include_router(admin_market_intelligence.router, prefix=f"{settings.API_V1_STR}/admin/market-intelligence", tags=["Admin - Market Intelligence"])
 
 # 4. Locality Intelligence (Public/Auth optional depending on business logic)

@@ -16,30 +16,34 @@ class MarketIntelligence(Document):
     avg_commercial_plot_price: float
     avg_residential_plot_price: float
     avg_rental_2bhk: float
+    avg_rental_yield: Optional[str] = None
     economic_output: str
     population: str
     appreciation_potential_5yr: str
     
     # Growth History (Last 5 Years)
-    growth_history: List[Dict[str, Any]]  # [{"year": 2020, "price": 14, "reason": "..."}]
+    growth_history: List[Any]  # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
     
     # Growth Prediction (Next 5 Years)
-    growth_prediction: List[Dict[str, Any]] # [{"year": 2026, "price": 27, "reason": "..."}]
+    growth_prediction: List[Any] # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
     
     # Political & Infrastructure Agenda
     political_agenda: Dict[str, Any] # {"mla": "...", "mp": "...", "governance": "...", "focus": ["..."]}
     
     # Key Amenities
-    amenities: List[str]
+    amenities: List[Any]  # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
     
     # Upcoming Development Projects
     upcoming_projects: List[str]
     
     # Top Investment Landmarks
-    investment_landmarks: List[Dict[str, Any]] # [{"name": "...", "residential": 28, "commercial": 38, "rental": 12, "growth": 40}]
+    investment_landmarks: List[Any] # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
     
     # Major Landmarks for Map
-    map_landmarks: List[Dict[str, Any]] # [{"name": "...", "price": 38, "growth": 32}]
+    map_landmarks: List[Any] # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
+    
+    report_download_url: Optional[str] = None
+    expert_contact_id: Optional[UUID] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

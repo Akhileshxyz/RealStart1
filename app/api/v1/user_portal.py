@@ -1,7 +1,10 @@
 import logging
+import uuid
+import shutil
+from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from pydantic import BaseModel, EmailStr
 from app.api import deps
 from app.models.user import User
 from app.models.lead import ProjectLead
@@ -26,28 +29,67 @@ logger = logging.getLogger(__name__)
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
-    # Password update should be separate secure endpoint typically, but creating placeholder
-    
+    photo_url: Optional[str] = None
+    region: Optional[str] = None
+
 class UserProfileResponse(BaseModel):
     id: str
-    email: str
-    full_name: Optional[str]
+    email: EmailStr
+    full_name: str
     phone: Optional[str]
+    photo_url: Optional[str]
+    region: Optional[str]
     role: str
 
 @router.patch("/users/me", response_model=UserProfileResponse, tags=["User - Profile"])
 async def update_user_profile(
-    data: UserProfileUpdate,
-    current_user: User = Depends(deps.get_current_user)
+    current_user: User = Depends(deps.get_current_user),
+    full_name: Optional[str] = Form(None),
+    email: Optional[EmailStr] = Form(None),
+    phone: Optional[str] = Form(None),
+    region: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None)
 ):
     """
     Update current user's profile.
+    Accepts multipart/form-data.
     """
-    if data.full_name is not None:
-        current_user.full_name = data.full_name
-    if data.phone is not None:
-        current_user.phone = data.phone
+    if full_name is not None:
+        current_user.full_name = full_name
+    if phone is not None:
+        current_user.phone = phone
+    if email is not None:
+        # Check if email is already taken
+        user_exists = await User.find_one(User.email == email)
+        if user_exists and user_exists.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        current_user.email = email
+    if region is not None:
+        current_user.region = region
+        
+    if photo is not None and getattr(photo, 'filename', None):
+        # Validate extension
+        file_ext = Path(photo.filename).suffix.lower()
+        if file_ext not in [".jpg", ".jpeg", ".png", ".heic", ".heif"]:
+            raise HTTPException(status_code=400, detail="Invalid photo format. Allowed: .jpg, .jpeg, .png, .heic, .heif")
+            
+        # Create upload directory
+        upload_dir = Path(settings.UPLOAD_DIR) / "profiles" / str(current_user.id)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save file
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        file_path = upload_dir / unique_filename
+        try:
+            with file_path.open("wb") as buffer:
+                shutil.copyfileobj(photo.file, buffer)
+            current_user.photo_url = f"/uploads/profiles/{current_user.id}/{unique_filename}"
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload photo: {str(e)}")
+        finally:
+            photo.file.close()
     
     await current_user.save()
     return UserProfileResponse(
@@ -55,6 +97,8 @@ async def update_user_profile(
         email=current_user.email,
         full_name=current_user.full_name,
         phone=current_user.phone,
+        photo_url=current_user.photo_url,
+        region=current_user.region,
         role=current_user.role
     )
 
@@ -70,6 +114,8 @@ async def get_user_profile(
         email=current_user.email,
         full_name=current_user.full_name,
         phone=current_user.phone,
+        photo_url=current_user.photo_url,
+        region=current_user.region,
         role=current_user.role
     )
 

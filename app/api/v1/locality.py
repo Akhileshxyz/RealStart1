@@ -69,6 +69,39 @@ async def _area_summaries_for_city(city_landmark_id: UUID) -> List[MarketAreaSum
         )
     return rows
 
+def _sanitize_amenities(amenities: Any) -> List[Dict[str, Any]]:
+    # logger.debug(f"Sanitizing amenities: {amenities}")
+    if not amenities:
+        return []
+    
+    # If it's a string, try to parse it as JSON or treat as single item list
+    # raise Exception(f"DEBUG: amenities type is {type(amenities)} value {amenities}")
+    items = []
+    if isinstance(amenities, str):
+        try:
+            import json
+            parsed = json.loads(amenities)
+            items = parsed if isinstance(parsed, list) else [str(parsed)]
+        except:
+            items = [amenities]
+    elif isinstance(amenities, list):
+        items = amenities
+    else:
+        items = []
+
+    out = []
+    for a in items:
+        if isinstance(a, str):
+            out.append({"name": sanitize_str(a), "icon_url": "/icons/star.svg"})
+        elif isinstance(a, dict):
+            # Ensure it has icon_url key
+            res = dict(a)
+            if not res.get("icon_url"):
+                res["icon_url"] = "/icons/star.svg"
+            out.append(res)
+    
+    return out
+
 
 def _detail_public(
     intel: MarketIntelligence,
@@ -81,6 +114,7 @@ def _detail_public(
         avg_commercial_plot_price=float(intel.avg_commercial_plot_price),
         avg_residential_plot_price=float(intel.avg_residential_plot_price),
         avg_rental_2bhk=float(intel.avg_rental_2bhk),
+        avg_rental_yield=getattr(intel, 'avg_rental_yield', None),
         economic_output=sanitize_str(intel.economic_output),
         population=sanitize_str(intel.population),
         appreciation_potential_5yr=sanitize_str(intel.appreciation_potential_5yr),
@@ -96,13 +130,15 @@ def _detail_public(
         city=sanitize_str(landmark.city),
         latitude=lat,
         longitude=lng,
+        report_download_url=getattr(intel, 'report_download_url', None),
+        expert_contact_id=getattr(intel, 'expert_contact_id', None),
         image_url=public_image_url(getattr(landmark, "image_url", None)),
         market_overview=overview,
         box_content=box,
         growth_history=sanitize_json(intel.growth_history) or [],
         growth_prediction=sanitize_json(intel.growth_prediction) or [],
         political_agenda=sanitize_json(intel.political_agenda) or {},
-        amenities=sanitize_json(intel.amenities) or [],
+        amenities=_sanitize_amenities(sanitize_json(intel.amenities) or []),
         upcoming_projects=sanitize_json(intel.upcoming_projects) or [],
         investment_landmarks=sanitize_json(intel.investment_landmarks) or [],
         map_landmarks=sanitize_map_landmarks(intel.map_landmarks),
@@ -166,6 +202,7 @@ async def build_market_intelligence_area_detail(
         avg_commercial_plot_price=float(intelligence.avg_commercial_plot_price),
         avg_residential_plot_price=float(intelligence.avg_residential_plot_price),
         avg_rental_2bhk=float(intelligence.avg_rental_2bhk),
+        avg_rental_yield=getattr(intelligence, 'avg_rental_yield', None),
         appreciation_potential_5yr=sanitize_str(intelligence.appreciation_potential_5yr),
     )
     upcoming_raw = sanitize_json(intelligence.upcoming_projects) or []
@@ -193,12 +230,14 @@ async def build_market_intelligence_area_detail(
         zone=zone_val,
         latitude=lat,
         longitude=lng,
+        report_download_url=getattr(intelligence, 'report_download_url', None),
+        expert_contact_id=getattr(intelligence, 'expert_contact_id', None),
         image_url=public_image_url(getattr(landmark, "image_url", None)),
         market_overview=overview,
         box_content=area_box,
         growth_history=sanitize_json(intelligence.growth_history) or [],
         growth_prediction=sanitize_json(intelligence.growth_prediction) or [],
-        amenities=sanitize_json(intelligence.amenities) or [],
+        amenities=_sanitize_amenities(sanitize_json(intelligence.amenities) or []),
         upcoming_developments=upcoming_items,
         top_spots_to_invest=sanitize_json(intelligence.investment_landmarks) or [],
         top_developed_layouts=layouts,

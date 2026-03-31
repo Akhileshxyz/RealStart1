@@ -155,3 +155,72 @@ class ProjectListResponse(BaseModel):
     city: Optional[str] = None
     rera_number: Optional[str] = None
     property_type: Optional[PropertyType] = None
+
+# --- PUBLIC PROJECT DETAIL SCHEMAS ---
+
+class ProjectAmenity(BaseModel):
+    name: str
+    icon_url: str
+
+class ProjectInventoryItem(BaseModel):
+    dimension: str
+    area: str
+    price: str
+    rate: str
+    status: str
+
+class GrowthForecastDataPoint(BaseModel):
+    year: str
+    price: float
+
+class GrowthForecast(BaseModel):
+    chart_label: str
+    roi_text: str
+    data: List[GrowthForecastDataPoint]
+
+class LocationAdvantage(BaseModel):
+    name: str
+    distance: str
+    duration: str
+    type: str
+
+class ProjectAgent(BaseModel):
+    name: str
+    role: str
+    avatar_url: str
+    phone: str
+    is_verified: bool
+
+class ProjectDocumentDetail(BaseModel):
+    title: str
+    meta: str
+    file_url: str
+    is_locked: bool = False
+
+class ProjectDocuments(BaseModel):
+    legal: List[ProjectDocumentDetail]
+    technical: List[ProjectDocumentDetail]
+
+class PublicProjectDetailResponse(BaseModel):
+    id: UUID
+    title: str
+    slug: str
+    location_name: str
+    rating: float
+    hero_image: Optional[str]
+    price_display: str
+    unit_type: str
+    description: str
+    
+    photos: List[str]
+    overview: Dict[str, str]
+    amenities: List[ProjectAmenity]
+    inventory: List[ProjectInventoryItem]
+    growth_forecast: GrowthForecast
+    location_advantages: List[LocationAdvantage]
+    agent: ProjectAgent
+    documents: ProjectDocuments
+
+    class Config:
+        from_attributes = True
+

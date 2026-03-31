@@ -32,5 +32,10 @@ __all__ = [
     "lawyer_clients",
     "lawyer_schedule",
     "lawyer_analytics",
-    "lawyer_settings"
+    "lawyer_settings",
+    "wishlist",
+    "public_home",
+    "admin_blogs",
+    "admin_reels",
+    "user_reels"
 ]

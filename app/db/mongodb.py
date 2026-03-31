@@ -23,6 +23,9 @@ from app.models.locality_review import LocalityReview
 from app.models.price_history import PriceHistory
 from app.models.market_intelligence import MarketIntelligence
 from app.models.user_preferences import UserNotificationPreferences
+from app.models.notification import Notification
+from app.models.blog import Blog
+from app.models.reel import Reel, ReelLike, ReelComment, ReelSave
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -57,7 +60,13 @@ async def init_db():
             LocalityReview,
             PriceHistory,
             UserNotificationPreferences,
-            MarketIntelligence
+            MarketIntelligence,
+            Notification,
+            Blog,
+            Reel,
+            ReelLike,
+            ReelComment,
+            ReelSave,
         ]
     )
 

@@ -110,6 +110,7 @@ class Project(Document):
 
     is_hidden: bool = False
     hidden_at: Optional[datetime] = None
+    is_featured: bool = False  # Shown on homepage Featured section
     is_active: bool = True # For soft delete
     
     # Legal / Documents
