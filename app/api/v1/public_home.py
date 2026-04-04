@@ -7,18 +7,22 @@ Public Homepage APIs
 """
 from typing import Any, List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from uuid import UUID
 
-from app.models.landmark import Landmark
-from app.models.market_intelligence import MarketIntelligence
 from app.models.project import Project, ProjectStatus
 from app.models.blog import Blog
-from app.core.redis_client import redis_client
+from app.models.city import City
+from app.models.landmark import Landmark
+from beanie.operators import In
+from app.schemas.city import CityResponse, CityPublicDetailsResponse, LandmarkRichResponse
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
 
 # ---------------------------------------------------------------------------
 # Response schemas (inline – lightweight, purpose-built for the homepage)
@@ -30,20 +34,15 @@ class CityStats(BaseModel):
     projects_count: int
     yield_display: str            # e.g. "3.2%"
 
-
 class FeaturedCityResponse(BaseModel):
-    landmark_id: UUID
+    id: UUID
     name: str
-    image_url: Optional[str] = None
-    appreciation_potential: str   # e.g. "+15%"
-    stats: CityStats
-
+    image: Optional[str] = None
 
 class FeaturedCitiesEnvelope(BaseModel):
     status: str = "success"
     results: int
     data: List[FeaturedCityResponse]
-
 
 class FeaturedProjectCard(BaseModel):
     id: UUID
@@ -53,17 +52,14 @@ class FeaturedProjectCard(BaseModel):
     price_display: Optional[str] = None   # formatted min_price/sqft
     thumbnail_url: Optional[str] = None   # first gallery image
 
-
 class FeaturedProjectsEnvelope(BaseModel):
     status: str = "success"
     results: int
     data: List[FeaturedProjectCard]
 
-
 class BlogTheme(BaseModel):
     bg: str = "#1a2230"
     accent: str = "#94a3b8"
-
 
 class BlogCard(BaseModel):
     id: str
@@ -75,12 +71,10 @@ class BlogCard(BaseModel):
     theme: BlogTheme
     image_url: Optional[str] = None
 
-
 class BlogsEnvelope(BaseModel):
     status: str = "success"
     results: int
     data: List[BlogCard]
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,12 +86,10 @@ def _format_price(value: Optional[float]) -> Optional[str]:
         return None
     return f"₹{int(value):,}"
 
-
 def _format_datetime(dt: Optional[datetime]) -> str:
     if dt is None:
         return ""
     return dt.strftime("%d/%m/%Y %I:%M %p")
-
 
 # ---------------------------------------------------------------------------
 # 1. Featured Cities  →  GET /api/v1/public/featured-cities
@@ -113,66 +105,65 @@ async def list_featured_cities(
     limit: int = Query(10, ge=1, le=50),
 ) -> Any:
     """
-    Returns city-level landmarks joined with their MarketIntelligence record
-    to build the homepage CitySelector and CityOverviewSection components.
-
-    Cached for 1 hour (TIER 1).
+    Returns featured cities from the cities collection.
+    Real-time data (No Cache).
     """
-    cache_key = redis_client.make_key("public", "featured_cities", str(limit))
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return cached
+    cities = await City.find(City.is_active == True).limit(limit).to_list()
 
-    # Fetch all landmarks that are city-type (have market intelligence records)
-    mi_records = await MarketIntelligence.find(
-        MarketIntelligence.location_type == "city"
-    ).limit(limit).to_list()
-
-    data: List[FeaturedCityResponse] = []
-
-    for mi in mi_records:
-        # Pull the landmark for name + image
-        landmark = await Landmark.get(mi.landmark_id)
-        if not landmark:
-            continue
-
-        # Count approved projects linked to this landmark
-        projects_count = await Project.find(
-            Project.landmark_id == mi.landmark_id,
-            Project.status == ProjectStatus.APPROVED,
-            Project.is_hidden == False,
-        ).count()
-
-        # Build stats - avg_price_per_sqft from Landmark, growth from MI
-        avg_price = landmark.avg_price_per_sqft
-        growth_5yr = landmark.growth_forecast_5yr  # stored as float e.g. 68.0
-
-        stats = CityStats(
-            avg_price_display=f"₹{int(avg_price):,}" if avg_price else "N/A",
-            growth_display=f"+{growth_5yr:.0f}%" if growth_5yr else mi.appreciation_potential_5yr,
-            projects_count=projects_count,
-            yield_display="N/A",  # Not stored yet; extend Landmark model when available
+    data: List[FeaturedCityResponse] = [
+        FeaturedCityResponse(
+            id=city.id,
+            name=city.name,
+            image=city.images[0] if city.images else None
         )
+        for city in cities
+    ]
 
-        data.append(FeaturedCityResponse(
-            landmark_id=mi.landmark_id,
-            name=landmark.name,
-            image_url=landmark.image_url,
-            appreciation_potential=mi.appreciation_potential_5yr,
-            stats=stats,
-        ))
-
-    result = {
+    return {
         "status": "success",
         "results": len(data),
         "data": [d.model_dump() for d in data],
     }
 
-    # Cache 1 hour
-    await redis_client.set(cache_key, result, 3600)
+@router.get("/cities/{slug}", response_model=CityPublicDetailsResponse, tags=["Public - Home"])
+async def get_city_by_slug(slug: str) -> Any:
+    """
+    Returns full city details (stats, pricing, infrastructure) based on slug.
+    Now includes detailed landmarks.
+    """
+    city = await City.find_one(City.slug == slug)
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+    
+    # Fetch detailed landmarks
+    landmarks = []
+    if city.landmarks_id_list:
+        db_landmarks = await Landmark.find(In(Landmark.id, city.landmarks_id_list)).to_list()
+        for lm in db_landmarks:
+            # Handle amenities (nearby_amenities can be list or dict)
+            amenities = []
+            if isinstance(lm.nearby_amenities, list):
+                amenities = lm.nearby_amenities[:3] # Limit to 2-3
+            elif isinstance(lm.nearby_amenities, dict):
+                # Flatten dict values if it's categorized
+                for val in lm.nearby_amenities.values():
+                    if isinstance(val, list):
+                        amenities.extend(val)
+                amenities = amenities[:3]
 
-    return result
+            landmarks.append(LandmarkRichResponse(
+                id=lm.id,
+                name=lm.name,
+                image_url=lm.image_url,
+                location=lm.location.model_dump() if lm.location else None,
+                amenities=amenities
+            ))
 
+    # Construct complete response
+    response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
+    response_data.landmarks = landmarks
+    
+    return response_data
 
 # ---------------------------------------------------------------------------
 # 2. Featured Projects  →  GET /api/v1/public/featured-projects
@@ -189,13 +180,8 @@ async def list_featured_projects(
 ) -> Any:
     """
     Returns APPROVED, non-hidden projects flagged as `is_featured=True`.
-    Cached for 30 minutes (TIER 2).
+    Real-time data (No Cache).
     """
-    cache_key = redis_client.make_key("public", "featured_projects", str(limit))
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return cached
-
     projects = await Project.find(
         Project.is_featured == True,
         Project.status == ProjectStatus.APPROVED,
@@ -215,17 +201,11 @@ async def list_featured_projects(
         for p in projects
     ]
 
-    result = {
+    return {
         "status": "success",
         "results": len(data),
         "data": [d.model_dump() for d in data],
     }
-
-    # Cache 30 minutes
-    await redis_client.set(cache_key, result, 1800)
-
-    return result
-
 
 # ---------------------------------------------------------------------------
 # 3. Blogs  →  GET /api/v1/public/blogs
@@ -243,13 +223,8 @@ async def list_blogs(
 ) -> Any:
     """
     Returns published blogs sorted by published_at descending.
-    Cached for 15 minutes (TIER 2).
+    Real-time data (No Cache).
     """
-    cache_key = redis_client.make_key("public", "blogs", str(limit), category or "all")
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return cached
-
     query = Blog.find(Blog.is_published == True)
     if category:
         query = query.find(Blog.category == category)
@@ -273,13 +248,8 @@ async def list_blogs(
         for b in blogs
     ]
 
-    result = {
+    return {
         "status": "success",
         "results": len(data),
         "data": [d.model_dump() for d in data],
     }
-
-    # Cache 15 minutes
-    await redis_client.set(cache_key, result, 900)
-
-    return result

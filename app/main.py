@@ -48,8 +48,10 @@ from app.api.v1 import (
     public_home,
     admin_blogs,
     admin_reels,
-    user_reels
+    user_reels,
+    admin_cities
 )
+
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 from app.core.logging_config import setup_logging
 import logging
@@ -118,6 +120,7 @@ tags_metadata = [
     {"name": "Lawyer - Settings", "description": "Lawyer profile and availability settings."},
     {"name": "Reels", "description": "Short video content feed and interactions."},
     {"name": "Admin - Reels", "description": "Admin/Team management for short video content (reels)."},
+    {"name": "Admin - Cities", "description": "Admin city management and CRUD operations."},
 ]
 
 app = FastAPI(
@@ -135,9 +138,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Configuration
+allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -148,8 +153,6 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 
 # Include Routers
-
-# 1. Public APIs
 app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
 app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Projects"])
 app.include_router(public_home.router, prefix=f"{settings.API_V1_STR}/public", tags=["Public - Home"])
@@ -159,7 +162,6 @@ app.include_router(user_notifications.router, prefix=f"{settings.API_V1_STR}", t
 app.include_router(wishlist.router, prefix=f"{settings.API_V1_STR}/wishlist", tags=["User - Wishlist"])
 app.include_router(user_reels.router, prefix=f"{settings.API_V1_STR}/reels", tags=["Reels"])
 
-# 2. Developer Portal
 app.include_router(developer_auth.router, prefix=f"{settings.API_V1_STR}/developers/auth", tags=["Developer - Authentication"])
 app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
 app.include_router(developer_leads.router, prefix=f"{settings.API_V1_STR}/developers/leads", tags=["Developer - Leads"])
@@ -168,7 +170,6 @@ app.include_router(developer_team.router, prefix=f"{settings.API_V1_STR}/develop
 app.include_router(developer_subscriptions.router, prefix=f"{settings.API_V1_STR}/developers/subscriptions", tags=["Developer - Subscriptions"])
 app.include_router(developer_uploads.router, prefix=f"{settings.API_V1_STR}/developers", tags=["Developer - Uploads"])
 
-# 3. Admin Portal
 app.include_router(admin_auth.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin - Authentication"])
 app.include_router(admin_projects.router, prefix=f"{settings.API_V1_STR}/admin/projects", tags=["Admin - Projects"])
 app.include_router(developers.router, prefix=f"{settings.API_V1_STR}/admin/developers", tags=["Admin - Developers"])
@@ -184,15 +185,11 @@ app.include_router(admin_videos.router, prefix=f"{settings.API_V1_STR}/admin/vid
 app.include_router(admin_blogs.router, prefix=f"{settings.API_V1_STR}/admin/blogs", tags=["Admin - Blogs"])
 app.include_router(admin_reels.router, prefix=f"{settings.API_V1_STR}/admin/reels", tags=["Admin - Reels"])
 app.include_router(admin_market_intelligence.router, prefix=f"{settings.API_V1_STR}/admin/market-intelligence", tags=["Admin - Market Intelligence"])
+app.include_router(admin_cities.router, prefix=f"{settings.API_V1_STR}/admin/cities", tags=["Admin - Cities"])
 
-# 4. Locality Intelligence (Public/Auth optional depending on business logic)
-# Keeping strict auth validation inside endpoints if needed, generic prefix here.
 app.include_router(locality.router, prefix=f"{settings.API_V1_STR}/locality", tags=["Locality"])
-
-# 5. Settings (for all user types)
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
 
-# 5. Lawyer Portal
 app.include_router(lawyer_auth.router, prefix=f"{settings.API_V1_STR}/lawyer/auth", tags=["Lawyer - Authentication"])
 app.include_router(lawyer_dashboard.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Dashboard"])
 app.include_router(lawyer_cases.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Cases"])
@@ -215,5 +212,4 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
     return {"status": "healthy", "service": "RealStart API"}

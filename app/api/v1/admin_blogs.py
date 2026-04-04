@@ -52,7 +52,7 @@ async def _invalidate_blog_caches() -> None:
 @router.get("/", response_model=List[BlogDetailResponse])
 async def list_blogs_admin(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=5000),
     is_published: Optional[bool] = Query(None),
     category: Optional[str] = Query(None),
     current_user: User = Depends(deps.get_current_active_admin),

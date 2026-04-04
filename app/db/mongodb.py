@@ -26,6 +26,8 @@ from app.models.user_preferences import UserNotificationPreferences
 from app.models.notification import Notification
 from app.models.blog import Blog
 from app.models.reel import Reel, ReelLike, ReelComment, ReelSave
+from app.models.city import City
+
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
@@ -67,7 +69,9 @@ async def init_db():
             ReelLike,
             ReelComment,
             ReelSave,
+            City,
         ]
+
     )
 
     return client

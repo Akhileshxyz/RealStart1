@@ -536,6 +536,83 @@ async def get_market_intelligence_area_detail_public(landmark_id: UUID) -> Any:
     )
 
 
+# --- 5. Comparisons ---
+
+@router.get("/compare", response_model=Any)
+@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
+async def compare_localities(base_id: str = Query(...), target_id: str = Query(...)) -> Any:
+    """
+    Compare two localities by returning side-by-side data.
+    """
+    async def _resolve_location_data(loc_id: str, default_name: str, default_zone: str, is_base: bool) -> Dict[str, Any]:
+        name = default_name
+        zone = default_zone
+        image_url = "/assets/images/research_hero_bg.png" if is_base else "/assets/images/layout_skyline_waterfront.png"
+        res_land = "₹1.07 Cr" if is_base else "₹1.26 Cr"
+        com_land = "₹1.55 Cr" if is_base else "₹1.89 Cr"
+        rental_rent = "₹28-32K" if is_base else "₹22-30K"
+        appreciation = "28-32%" if is_base else "22-26%"
+        
+        try:
+            uid = UUID(loc_id)
+            landmark = await Landmark.get(uid)
+            if landmark:
+                name = landmark.name
+                zone = landmark.zone or zone
+                img = public_image_url(getattr(landmark, "image_url", None))
+                if img:
+                    image_url = img
+                
+                intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == uid)
+                if intel:
+                    res_land = f"₹{intel.avg_residential_plot_price:g} L" if intel.avg_residential_plot_price else res_land
+                    com_land = f"₹{intel.avg_commercial_plot_price:g} L" if intel.avg_commercial_plot_price else com_land
+                    rental_rent = f"₹{intel.avg_rental_2bhk:g}" if intel.avg_rental_2bhk else rental_rent
+                    if intel.appreciation_potential_5yr:
+                        appreciation = str(intel.appreciation_potential_5yr)
+        except ValueError:
+            pass # Use defaults if not a UUID
+            
+        return {
+            "id": loc_id,
+            "name": name,
+            "zone": zone,
+            "image_url": image_url,
+            "price_snapshot": {
+                "residential_land": res_land,
+                "commercial_land": com_land,
+                "rental_rent": rental_rent,
+                "appreciation_5yr": appreciation
+            },
+            "traits": {
+                "rental": "Strong" if is_base else "Stable",
+                "growth": "High" if is_base else "Growing",
+                "family": "Developing" if is_base else "Premium",
+                "traffic": "Manageable" if is_base else "Congested",
+                "social": "Growing" if is_base else "Mature"
+            }
+        }
+
+    base_location = await _resolve_location_data(base_id, "Manyata Tech Park", "North Bengaluru", True)
+    target_location = await _resolve_location_data(target_id, "Whitefield", "East Bengaluru", False)
+    
+    return {
+        "base_location": base_location,
+        "target_location": target_location,
+        "historical_growth_chart": {
+            "labels": ["2019", "2020", "2021", "2022", "2023", "2024"],
+            "base_data": [100, 115, 140, 180, 240, 310],
+            "target_data": [100, 110, 125, 150, 190, 240]
+        },
+        "conclusion": {
+            "best_for_investors": base_location["name"],
+            "best_for_end_users": target_location["name"],
+            "guidance_investor": f"Choose {base_location['name']} if you want a slightly lower entry price today with stronger rental demand from IT offices and clear upside from the airport metro.",
+            "guidance_end_user": f"Choose {target_location['name']} if you want ready lifestyle from Day 1 (metro, malls, schools) and plan to live close to your office with family convenience."
+        }
+    }
+
+
 # --- 3. Canonical Details API ---
 
 @router.get("/{landmark_id}", response_model=Any)
@@ -824,4 +901,6 @@ async def get_locality_graph_dashboard(landmark_id: UUID = Query(...)) -> Any:
         },
         "investment_score": 8.5 # out of 10
     }
+
+# --- 5. Comparisons ---
 

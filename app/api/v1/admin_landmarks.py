@@ -23,7 +23,7 @@ router = APIRouter()
 async def list_all_landmarks(
     city: str = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=5000),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
