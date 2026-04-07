@@ -539,76 +539,100 @@ async def get_market_intelligence_area_detail_public(landmark_id: UUID) -> Any:
 # --- 5. Comparisons ---
 
 @router.get("/compare", response_model=Any)
-@cache_public_data(ttl=settings.REDIS_CACHE_TTL_LANDMARKS)
-async def compare_localities(base_id: str = Query(...), target_id: str = Query(...)) -> Any:
+async def compare_localities(
+    base_id: UUID = Query(..., description="The ID of the base landmark"),
+    target_id: UUID = Query(..., description="The ID of the target landmark to compare against")
+) -> Any:
     """
-    Compare two localities by returning side-by-side data.
+    Compare two localities by returning side-by-side dynamic data.
+    Ensures real-time results by removing static placeholders.
     """
-    async def _resolve_location_data(loc_id: str, default_name: str, default_zone: str, is_base: bool) -> Dict[str, Any]:
-        name = default_name
-        zone = default_zone
-        image_url = "/assets/images/research_hero_bg.png" if is_base else "/assets/images/layout_skyline_waterfront.png"
-        res_land = "₹1.07 Cr" if is_base else "₹1.26 Cr"
-        com_land = "₹1.55 Cr" if is_base else "₹1.89 Cr"
-        rental_rent = "₹28-32K" if is_base else "₹22-30K"
-        appreciation = "28-32%" if is_base else "22-26%"
-        
+    base_lm = await Landmark.get(base_id)
+    target_lm = await Landmark.get(target_id)
+    
+    if not base_lm or not target_lm:
+        raise HTTPException(status_code=404, detail="One or both landmarks not found")
+
+    # Fetch Market Intelligence for deeper data
+    base_mi = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == base_id)
+    target_mi = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == target_id)
+
+    def generate_location_data(lm: Landmark, mi: Optional[MarketIntelligence], is_base: bool):
+        # Traits Logic (Derived from stats)
+        rental_val = lm.rental_yield.replace("%", "").strip() if lm.rental_yield else "0"
         try:
-            uid = UUID(loc_id)
-            landmark = await Landmark.get(uid)
-            if landmark:
-                name = landmark.name
-                zone = landmark.zone or zone
-                img = public_image_url(getattr(landmark, "image_url", None))
-                if img:
-                    image_url = img
-                
-                intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == uid)
-                if intel:
-                    res_land = f"₹{intel.avg_residential_plot_price:g} L" if intel.avg_residential_plot_price else res_land
-                    com_land = f"₹{intel.avg_commercial_plot_price:g} L" if intel.avg_commercial_plot_price else com_land
-                    rental_rent = f"₹{intel.avg_rental_2bhk:g}" if intel.avg_rental_2bhk else rental_rent
-                    if intel.appreciation_potential_5yr:
-                        appreciation = str(intel.appreciation_potential_5yr)
+            rental_yield_float = float(rental_val)
         except ValueError:
-            pass # Use defaults if not a UUID
-            
-        return {
-            "id": loc_id,
-            "name": name,
-            "zone": zone,
-            "image_url": image_url,
-            "price_snapshot": {
-                "residential_land": res_land,
-                "commercial_land": com_land,
-                "rental_rent": rental_rent,
-                "appreciation_5yr": appreciation
-            },
-            "traits": {
-                "rental": "Strong" if is_base else "Stable",
-                "growth": "High" if is_base else "Growing",
-                "family": "Developing" if is_base else "Premium",
-                "traffic": "Manageable" if is_base else "Congested",
-                "social": "Growing" if is_base else "Mature"
-            }
+            rental_yield_float = 0.0
+
+        traits = {
+            "rental": "High" if rental_yield_float > 4.5 else "Moderate",
+            "growth": "Aggressive" if lm.price_trend == "rising" else "Stable",
+            "family": "Superior" if len(lm.nearby_amenities or []) > 5 else "Moderate",
+            "traffic": "Moderate", 
+            "social": "Excellent" if len(lm.nearby_amenities or []) > 3 else "Good"
         }
 
-    base_location = await _resolve_location_data(base_id, "Manyata Tech Park", "North Bengaluru", True)
-    target_location = await _resolve_location_data(target_id, "Whitefield", "East Bengaluru", False)
+        # Price Snapshot Logic
+        res_price = mi.avg_residential_plot_price if mi else lm.avg_plot_price
+        comm_price = mi.avg_commercial_plot_price if mi else lm.avg_plot_price * 1.5
+        appreciation = mi.appreciation_potential_5yr if mi else "30-35%"
+        
+        price_snapshot = {
+            "residential_land": f"₹{int(res_price):,} - ₹{int(res_price * 1.3):,}",
+            "commercial_land": f"₹{int(comm_price):,} - ₹{int(comm_price * 1.2):,}",
+            "rental_rent": lm.residential_rent_2bhk or "₹20,000 - ₹25,000",
+            "appreciation_5yr": appreciation
+        }
+
+        return {
+            "id": str(lm.id),
+            "name": lm.name,
+            "zone": lm.zone or ("North Bengaluru" if is_base else "East Bengaluru"),
+            "image_url": public_image_url(getattr(lm, "image_url", None)) or (lm.images[0] if lm.images else "/assets/images/research_hero_bg.png"),
+            "price_snapshot": price_snapshot,
+            "traits": traits
+        }
+
+    base_location = generate_location_data(base_lm, base_mi, True)
+    target_location = generate_location_data(target_lm, target_mi, False)
+
+    # Chart Processing
+    base_growth = {p.year: p.value for p in base_lm.price_growth}
+    target_growth = {p.year: p.value for p in target_lm.price_growth}
     
+    all_years = sorted(list(set(base_growth.keys()) | set(target_growth.keys())))
+    if not all_years:
+        all_years = [datetime.now().year - i for i in range(5, -1, -1)]
+    
+    all_years_str = [str(y) for y in all_years]
+    labels_int = [int(y) for y in all_years]
+
+    historical_growth_chart = {
+        "labels": all_years_str,
+        "base_data": [base_growth.get(y, 0) for y in labels_int],
+        "target_data": [target_growth.get(y, 0) for y in labels_int]
+    }
+
+    # Conclusion Logic
+    try:
+        base_appr = float(base_location["price_snapshot"]["appreciation_5yr"].replace("+", "").replace("%", "").split("-")[0])
+        target_appr = float(target_location["price_snapshot"]["appreciation_5yr"].replace("+", "").replace("%", "").split("-")[0])
+    except:
+        base_appr = target_appr = 0
+
+    best_inv = base_location["name"] if base_appr >= target_appr else target_location["name"]
+    best_end = base_location["name"] if base_location["traits"]["family"] == "Superior" or base_location["traits"]["social"] == "Excellent" else target_location["name"]
+
     return {
         "base_location": base_location,
         "target_location": target_location,
-        "historical_growth_chart": {
-            "labels": ["2019", "2020", "2021", "2022", "2023", "2024"],
-            "base_data": [100, 115, 140, 180, 240, 310],
-            "target_data": [100, 110, 125, 150, 190, 240]
-        },
+        "historical_growth_chart": historical_growth_chart,
         "conclusion": {
-            "best_for_investors": base_location["name"],
-            "best_for_end_users": target_location["name"],
-            "guidance_investor": f"Choose {base_location['name']} if you want a slightly lower entry price today with stronger rental demand from IT offices and clear upside from the airport metro.",
-            "guidance_end_user": f"Choose {target_location['name']} if you want ready lifestyle from Day 1 (metro, malls, schools) and plan to live close to your office with family convenience."
+            "best_for_investors": best_inv,
+            "best_for_end_users": best_end,
+            "guidance_investor": f"Choose {best_inv} for stronger capital gains potential research.",
+            "guidance_end_user": f"Choose {best_end} for established lifestyle and connectivity."
         }
     }
 

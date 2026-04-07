@@ -23,12 +23,40 @@ class PoliticalAgendaSchema(BaseModel):
     mp: str
 
 class LandmarkRichResponse(BaseModel):
-    """Detailed Landmark info for public display"""
+    """Detailed Landmark info for summary view in city details"""
     id: UUID
     name: str
     image_url: Optional[str] = None
     location: Optional[Any] = None # GeoJSON coordinates
     amenities: Optional[List[str]] = [] # nearby_amenities
+
+class LandmarkFullPublicResponse(BaseModel):
+    """Full Landmark details for Market Intelligence view"""
+    id: UUID
+    name: str
+    city: str
+    zone: Optional[str] = None
+    location: Optional[Any] = None
+    
+    # Market Data
+    avg_price_per_sqft: Optional[float] = None
+    median_price: Optional[float] = None
+    growth_forecast_5yr: Optional[float] = None # Percentage 
+    price_trend: Optional[str] = None  # "rising", "stable", "falling"
+    price_trend_3m: Optional[str] = None # e.g. "+5.2%"
+    
+    total_projects: Optional[int] = 0
+    active_layouts_count: Optional[int] = 0
+    rera_projects_count: Optional[int] = 0
+
+    # Meta
+    description: Optional[str] = None
+    amenities: Optional[Union[List[str], Dict[str, Any]]] = Field(None, alias="nearby_amenities")
+    image_url: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        from_attributes = True
 
 class CityBase(BaseModel):
     name: str

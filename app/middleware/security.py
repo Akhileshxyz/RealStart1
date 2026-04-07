@@ -14,12 +14,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
-        # Relaxed CSP for API docs to work (tighten in production by disabling docs)
+        # Relaxed CSP for API docs to work
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+            "img-src * 'self' data: blob: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
             "font-src 'self' data:; "
             "worker-src 'self' blob:;"
         )

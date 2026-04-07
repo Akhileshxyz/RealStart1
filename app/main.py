@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from typing import Any, List, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -40,8 +42,9 @@ from app.api.v1 import (
     lawyer_schedule,
     lawyer_analytics,
     lawyer_settings,
-    lawyer_settings,
     lawyer_properties,
+    public_lawyers,
+    user_lawyers,
     admin_market_intelligence,
     user_notifications,
     wishlist,
@@ -59,6 +62,15 @@ import logging
 # Setup logging
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Custom StaticFiles class to handle CORS for PDF generation/Canvas
+class CORSStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: Any) -> Any:
+        response = await super().get_response(path, scope)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -137,8 +149,18 @@ limiter = Limiter(key_func=get_remote_address, storage_uri=settings.REDIS_URL)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS Configuration
+# (CORS middleware moved below to be outermost)
+
+# Security & Size Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
+
+# CORS Configuration (Outer-most to handle final headers)
 allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+if "http://localhost:5173" not in allowed_origins:
+    allowed_origins.append("http://localhost:5173")
+if "http://127.0.0.1:5173" not in allowed_origins:
+    allowed_origins.append("http://127.0.0.1:5173")
 
 app.add_middleware(
     CORSMiddleware,
@@ -146,11 +168,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
-
-# Security Middleware
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 
 # Include Routers
 app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
@@ -161,6 +180,8 @@ app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/user
 app.include_router(user_notifications.router, prefix=f"{settings.API_V1_STR}", tags=["User - Notifications"])
 app.include_router(wishlist.router, prefix=f"{settings.API_V1_STR}/wishlist", tags=["User - Wishlist"])
 app.include_router(user_reels.router, prefix=f"{settings.API_V1_STR}/reels", tags=["Reels"])
+app.include_router(public_lawyers.router, prefix=f"{settings.API_V1_STR}/public/lawyers", tags=["Lawyer - Public"])
+app.include_router(user_lawyers.router, prefix=f"{settings.API_V1_STR}/users/interactions/lawyer-consultations", tags=["Lawyer - User"])
 
 app.include_router(developer_auth.router, prefix=f"{settings.API_V1_STR}/developers/auth", tags=["Developer - Authentication"])
 app.include_router(developer_projects.router, prefix=f"{settings.API_V1_STR}/developers/projects", tags=["Developer - Projects"])
@@ -199,12 +220,11 @@ app.include_router(lawyer_analytics.router, prefix=f"{settings.API_V1_STR}/lawye
 app.include_router(lawyer_settings.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Settings"])
 app.include_router(lawyer_properties.router, prefix=f"{settings.API_V1_STR}/lawyer", tags=["Lawyer - Properties"])
 
-# Static files for uploads
-from fastapi.staticfiles import StaticFiles
+# Static files for uploads with explicit CORS for cross-origin PDF generation
 from pathlib import Path
 upload_dir = Path(settings.UPLOAD_DIR)
 upload_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
+app.mount("/uploads", CORSStaticFiles(directory=str(upload_dir)), name="uploads")
 
 @app.get("/")
 async def root():

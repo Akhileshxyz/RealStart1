@@ -1,89 +1,128 @@
 from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, field_validator, Field
-from app.schemas.project import ProjectResponse
+from pydantic import BaseModel, ConfigDict, Field
+from app.models.landmark import RiskProfile
+
+class LandmarkPricePointSchema(BaseModel):
+    year: int
+    value: float
+
+class LandmarkPredictionPointSchema(BaseModel):
+    year: int
+    value1: float
+    value2: float
+
+class GeoJSONLocationSchema(BaseModel):
+    type: str = "Point"
+    coordinates: List[float] # [longitude, latitude]
 
 class LandmarkSummary(BaseModel):
-    id: UUID = Field(alias="_id")
-    name: str
-    city: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    image_url: Optional[str] = None
-    avg_price_per_sqft: Optional[float] = None
-    median_price: Optional[float] = None
-    
-    class Config:
-        populate_by_name = True
-        from_attributes = True
-
-class LandmarkCreate(BaseModel):
-    name: str
-    city: str
-    zone: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    avg_price_per_sqft: Optional[float] = None
-    median_price: Optional[float] = None
-    growth_forecast_5yr: Optional[float] = None 
-    price_trend: Optional[str] = None
-    price_trend_3m: Optional[str] = None
-    
-    total_projects: Optional[int] = 0
-    active_layouts_count: Optional[int] = 0
-    rera_projects_count: Optional[int] = 0
-    
-    description: Optional[str] = None
-    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
-    image_url: Optional[str] = None
-
-    @field_validator('latitude')
-    @classmethod
-    def validate_latitude(cls, v):
-        if v is not None and (v < -90 or v > 90):
-            raise ValueError('Latitude must be between -90 and 90 degrees')
-        return v
-
-    @field_validator('longitude')
-    @classmethod
-    def validate_longitude(cls, v):
-        if v is not None and (v < -180 or v > 180):
-            raise ValueError('Longitude must be between -180 and 180 degrees')
-        return v
-
-class LandmarkResponse(BaseModel):
+    """Reference summary for nested lists"""
     id: UUID
     name: str
-    city: str
+    city_id: UUID
+    images: List[str] = []
+    avg_plot_price: float = 0
+    location: Optional[GeoJSONLocationSchema] = None
+    
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+class UpcomingProjectSummary(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    gallery_images: List[str] = []
+    property_type: Optional[str] = None
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class LandmarkBase(BaseModel):
+    name: str
+    city_id: UUID
+    hero_desc: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[GeoJSONLocationSchema] = None
     zone: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    avg_price_per_sqft: Optional[float] = None
-    median_price: Optional[float] = None
-    growth_forecast_5yr: Optional[float] = None 
+    
+    images: List[str] = []
+    
+    # Financial Stats
+    avg_plot_price: float = 0
+    avg_apartment_price: float = 0
+    residential_rent_2bhk: str = ""
+    rental_yield: str = ""
+    risk_profile: RiskProfile = RiskProfile.MODERATE
+    
     price_trend: Optional[str] = None
     price_trend_3m: Optional[str] = None
     
-    total_projects: Optional[int] = 0
-    active_layouts_count: Optional[int] = 0
-    rera_projects_count: Optional[int] = 0
-    
-    description: Optional[str] = None
-    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
-    image_url: Optional[str] = None
+    # Chart Data
+    price_growth: List[LandmarkPricePointSchema] = []
+    price_prediction: List[LandmarkPredictionPointSchema] = []
 
-    nearby_projects: List[ProjectResponse] = []
+    # Project Stats
+    total_projects: int = 0
+    active_layouts_count: int = 0
+    rera_projects_count: int = 0
     
+    # Relationships (Detailed for Response)
+    nearby_landmarks: List[LandmarkSummary] = []
+    upcoming_projects_list: List[UpcomingProjectSummary] = []
+    nearby_projects: List[UpcomingProjectSummary] = []
+    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+
+    # Relationship IDs (For Input/Storage)
+    nearby_landmarks_ids: List[UUID] = []
+    upcoming_project_ids: List[UUID] = []
+    nearby_project_ids: List[UUID] = []
+
+class LandmarkCreate(LandmarkBase):
+    pass
+
+class LandmarkUpdate(BaseModel):
+    name: Optional[str] = None
+    city_id: Optional[UUID] = None
+    hero_desc: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[GeoJSONLocationSchema] = None
+    zone: Optional[str] = None
+    images: Optional[List[str]] = None
+    
+    avg_plot_price: Optional[float] = None
+    avg_apartment_price: Optional[float] = None
+    residential_rent_2bhk: Optional[str] = None
+    rental_yield: Optional[str] = None
+    risk_profile: Optional[RiskProfile] = None
+    
+    price_trend: Optional[str] = None
+    price_trend_3m: Optional[str] = None
+    
+    price_growth: Optional[List[LandmarkPricePointSchema]] = None
+    price_prediction: Optional[List[LandmarkPredictionPointSchema]] = None
+
+    total_projects: Optional[int] = None
+    active_layouts_count: Optional[int] = None
+    rera_projects_count: Optional[int] = None
+    
+    nearby_landmarks_ids: Optional[List[UUID]] = None
+    upcoming_project_ids: Optional[List[UUID]] = None
+    nearby_project_ids: Optional[List[UUID]] = None
+    nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+
+class LandmarkResponse(LandmarkBase):
+    id: UUID
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PaginatedLandmarkResponse(BaseModel):
     total: int
     skip: int
     limit: int
     data: List[LandmarkResponse]
-    unique_cities: List[str]
+    unique_cities: List[UUID]

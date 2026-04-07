@@ -1,126 +1,95 @@
 from datetime import datetime
 from uuid import UUID, uuid4
+from typing import Optional, List, Dict, Any
 from enum import Enum
-from typing import List, Optional, Dict, Any
 from beanie import Document
 from pydantic import Field
 
+class EventType(str, Enum):
+    HEARING = "HEARING"
+    MEETING = "MEETING"
+    CALL = "CALL"
+    DEADLINE = "DEADLINE"
+    TASK = "TASK"
+    CONSULTATION = "CONSULTATION"
+    OTHER = "OTHER"
 
 class LawyerLeadStatus(str, Enum):
     NEW = "NEW"
     CONTACTED = "CONTACTED"
     CONVERTED = "CONVERTED"
-    FOLLOW_UP = "FOLLOW_UP"
     LOST = "LOST"
     COMPLETED = "COMPLETED"
-    SOLVED = "SOLVED"
-
-
-class EventType(str, Enum):
-    COURT = "Court"
-    MEETING = "Meeting"
-    TASK = "Task"
-    SITE_VISIT = "Site Visit"
-    CONSULTATION = "Consultation"
-    OTHER = "Other"
-
 
 class LawyerPaymentStatus(str, Enum):
-    PAID = "PAID"
     UNPAID = "UNPAID"
+    PAID = "PAID"
     REFUNDED = "REFUNDED"
-
 
 class LawyerProfile(Document):
     id: UUID = Field(default_factory=uuid4)
-    user_id: UUID
-    bio: Optional[str] = None
-    specialization: List[str] = Field(default_factory=list)
-    bar_council_id: Optional[str] = None
-    experience_years: int = 0
-    office_address: Optional[str] = None
-    profile_picture_url: Optional[str] = None
-
-    is_online: bool = False
-
-    rating: float = 0.0
-    review_count: int = 0
-
-    cities: List[str] = Field(default_factory=list)
-    languages: List[str] = Field(default_factory=list)
+    user_id: Optional[UUID] = None # Linked registered user id
     
-    notification_preferences: Dict[str, bool] = Field(default_factory=dict)
-
-    # Availability settings
-    working_days: List[Dict[str, Any]] = Field(
-        default_factory=list
-    )  # [{"day": "Mon", "enabled": True}]
-    working_hours: Dict[str, str] = Field(
-        default_factory=dict
-    )  # {"start": "09:00", "end": "18:00"}
-
+    # Profile Info
+    name: str = "Advocate"
+    bar_council_id: Optional[str] = None
+    specialization: List[str] = []
+    experience_years: int = 0
+    cities: List[str] = []
+    office_address: Optional[str] = None
+    bio: Optional[str] = None
+    
+    # Availability/Consultation Settings
+    fee: float = 999.0
+    working_days: List[Dict[str, Any]] = []
+    working_hours: Dict[str, str] = {}
+    
+    # Public Metrics
+    rating: float = 4.5
+    review_count: int = 0
+    image_url: Optional[str] = None
+    
+    # Preferences & Metadata
+    notification_preferences: Dict[str, bool] = {}
+    is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
-        name = "lawyer_profiles"
-
+        name = "lawyers"
 
 class LawyerLead(Document):
     id: UUID = Field(default_factory=uuid4)
     lawyer_id: UUID
+    user_id: UUID
+    project_id: Optional[UUID] = None
     client_name: str
     client_phone: str
     client_email: Optional[str] = None
-    client_city: Optional[str] = None
-    property_id: Optional[UUID] = None
-    project_name: Optional[str] = None
-    service_type: Optional[str] = None  # Document Review, Legal Consultation, etc.
-    priority: Optional[str] = None  # HIGH, MEDIUM, LOW
-    
-    service_fee: float = 0.0 # Earnings from this lead
-    
-    inquiry_date: datetime = Field(default_factory=datetime.utcnow)
-    
     status: LawyerLeadStatus = LawyerLeadStatus.NEW
     payment_status: LawyerPaymentStatus = LawyerPaymentStatus.UNPAID
-    
+    service_type: Optional[str] = None
+    service_fee: Optional[float] = 0.0
+    priority: str = "MEDIUM"
+    project_name: Optional[str] = None
+    client_city: Optional[str] = None
     notes: Optional[str] = None
-
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "lawyer_leads"
 
-
-class LawyerSubscriptionPlan(str, Enum):
-    BASIC = "BASIC"
-    PRO = "PRO"
-    PREMIUM = "PREMIUM"
-
-
 class LawyerSubscription(Document):
     id: UUID = Field(default_factory=uuid4)
     lawyer_id: UUID
-    plan_name: LawyerSubscriptionPlan = LawyerSubscriptionPlan.BASIC
-
-    start_date: datetime
+    plan_id: str
+    status: str = "active"
+    start_date: datetime = Field(default_factory=datetime.utcnow)
     end_date: datetime
-
-    is_active: bool = True
-
-    # Simple permissions dict, e.g., {"can_verify_docs": True, "lead_limit": 10}
-    features: Dict[str, Any] = {}
-
-    payment_details: Optional[Dict[str, Any]] = None
-
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "lawyer_subscriptions"
-
 
 class LawyerEvent(Document):
     id: UUID = Field(default_factory=uuid4)
@@ -128,16 +97,12 @@ class LawyerEvent(Document):
     title: str
     description: Optional[str] = None
     event_type: EventType = EventType.OTHER
-    
     start_time: datetime
     end_time: Optional[datetime] = None
-    
     location: Optional[str] = None
     client_name: Optional[str] = None
-    client_id: Optional[UUID] = None # can be user_id or lead_id
-    
+    client_id: Optional[UUID] = None
     is_completed: bool = False
-    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

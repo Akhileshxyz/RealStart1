@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.api import deps
@@ -24,6 +24,8 @@ from app.schemas.project import (
     ProjectDocuments
 )
 from app.services.project_service import get_approved_projects, get_project_by_slug, get_project_by_id
+from app.schemas.visit import ProjectAvailabilityResponse, DateAvailability, TimeSlot
+from app.models.lead import ProjectLead
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -229,3 +231,79 @@ async def get_public_project(
             await lead.insert()
             
     return await _map_project_to_public_detail(project)
+
+@router.get("/{project_id}/availability", response_model=ProjectAvailabilityResponse)
+@limiter.limit("60/minute")
+async def get_project_availability(
+    request: Request,
+    project_id: UUID,
+    start_date: str = Query(..., example="2026-04-10"),
+    end_date: str = Query(..., example="2026-04-17")
+) -> Any:
+    """
+    Get available visit slots for a project within a date range.
+    """
+    # Verify project exists
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Fetch existing bookings for this project in this range to mark as unavailable
+    existing_bookings = await ProjectLead.find(
+        ProjectLead.project_id == project_id,
+        ProjectLead.visit_date >= start_date,
+        ProjectLead.visit_date <= end_date,
+        ProjectLead.visit_status == "BOOKED"
+    ).to_list()
+
+    booked_slots = {} # {(date, time): True}
+    for b in existing_bookings:
+        booked_slots[(b.visit_date, b.visit_time)] = True
+
+    # Generate slots logic (10 AM to 5 PM, 1 hour intervals)
+    standard_slots = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"]
+    
+    # Parse dates
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    availability = []
+    curr_dt = start_dt
+    while curr_dt <= end_dt:
+        date_str = curr_dt.strftime("%Y-%m-%d")
+        slots = []
+        for s in standard_slots:
+            is_available = not booked_slots.get((date_str, s), False)
+            # Simple rule: No visits on Sundays (0=Mon, 6=Sun)
+            if curr_dt.weekday() == 6:
+                is_available = False
+            
+            slots.append(TimeSlot(time=s, available=is_available))
+        
+        availability.append(DateAvailability(date=date_str, slots=slots))
+        curr_dt += timedelta(days=1)
+
+    # 3. Format Project Mini Detail
+    location_parts = []
+    if project.landmark: location_parts.append(project.landmark)
+    elif project.address_line_1: location_parts.append(project.address_line_1)
+    if project.city: location_parts.append(project.city)
+    location_name = ", ".join(location_parts) if location_parts else "Bengaluru"
+    
+    price_display = f"₹{int(project.min_price):,}/sqft" if project.min_price else "Price on Request"
+    hero_image = project.gallery_images[0] if project.gallery_images else "/media/projects/hero.png"
+
+    return ProjectAvailabilityResponse(
+        project_id=project_id,
+        project={
+            "id": project.id,
+            "title": project.name,
+            "location_name": location_name,
+            "price_display": price_display,
+            "hero_image": hero_image
+        },
+        availability=availability
+    )

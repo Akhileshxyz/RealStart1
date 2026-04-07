@@ -58,6 +58,7 @@ class PropertyType(str, Enum):
 class Project(Document):
     id: UUID = Field(default_factory=uuid4)
     developer_id: UUID
+    lawyer_id: Optional[UUID] = None
     city_id: Optional[UUID] = None
     zone_id: Optional[UUID] = None
     landmark_id: Optional[UUID] = None # Linked Locality

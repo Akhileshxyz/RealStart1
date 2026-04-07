@@ -33,7 +33,13 @@ class ProjectLead(Document):
 
     # Visit tracking
     visit_booked_at: Optional[datetime] = None
-    visit_status: Optional[str] = None  # "BOOKED", "COMPLETED", "CANCELLED"
+    visit_date: Optional[str] = None      # e.g. "2026-04-10"
+    visit_time: Optional[str] = None      # e.g. "10:00"
+    visit_type: Optional[str] = None      # "virtual", "in_person"
+    cab_required: bool = False
+    visitor_name: Optional[str] = None
+    visitor_phone: Optional[str] = None
+    visit_status: Optional[str] = None    # "BOOKED", "COMPLETED", "CANCELLED"
 
     # Anonymous tracking
     is_anonymous: bool = True

@@ -1,46 +1,66 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Union
-from beanie import Document
+from enum import Enum
+from beanie import Document, Indexed
 from pydantic import BaseModel, Field
+
+class RiskProfile(str, Enum):
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
 
 class GeoJSONLocation(BaseModel):
     type: str = "Point"
     coordinates: Optional[List[float]] = None  # [longitude, latitude]
-    # Legacy format support
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+
+class LandmarkPricePoint(BaseModel):
+    year: int
+    value: float
+
+class LandmarkPredictionPoint(BaseModel):
+    year: int
+    value1: float # e.g. Locality Value
+    value2: float # e.g. City Avg Value
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
-    name: str
-    city: str
+    name: str 
+    city_id: UUID 
+    hero_desc: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Location
+    location: Optional[GeoJSONLocation] = None
     zone: Optional[str] = None
     
-    # GeoJSON Location (Mandatory for map features, optional for backward compatibility)
-    location: Optional[GeoJSONLocation] = None
-    # Structure: {"type": "Point", "coordinates": [longitude, latitude]}
+    # Media
+    images: List[str] = [] # Array of image paths
     
-    # Legacy/Display helpers (optional, can be derived)
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-
-    # Market Data
-    avg_price_per_sqft: Optional[float] = None
-    median_price: Optional[float] = None
-    growth_forecast_5yr: Optional[float] = None # Percentage 
+    # Financial/Market Data
+    avg_plot_price: float = 0
+    avg_apartment_price: float = 0
+    residential_rent_2bhk: str = ""
+    rental_yield: str = "" # e.g. "4.5%"
+    risk_profile: RiskProfile = RiskProfile.MODERATE
+    
     price_trend: Optional[str] = None  # "rising", "stable", "falling"
     price_trend_3m: Optional[str] = None # e.g. "+5.2%"
     
-    total_projects: Optional[int] = 0
-    active_layouts_count: Optional[int] = 0
-    rera_projects_count: Optional[int] = 0
+    # Chart Data (City-Style)
+    price_growth: List[LandmarkPricePoint] = []
+    price_prediction: List[LandmarkPredictionPoint] = []
 
-    # Additional metadata
-    description: Optional[str] = None
+    # Project Stats
+    total_projects: int = 0
+    active_layouts_count: int = 0
+    rera_projects_count: int = 0
+    
+    # Related Entities
+    nearby_landmarks_ids: List[UUID] = []
+    upcoming_project_ids: List[UUID] = []
+    nearby_project_ids: List[UUID] = []
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
-    # Site-relative or absolute URL for locality card / market intelligence hero (e.g. /uploads/localities/xxx.png)
-    image_url: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -49,6 +69,6 @@ class Landmark(Document):
         name = "landmarks"
         indexes = [
             [("location", "2dsphere")],
-            "city",
+            "city_id",
             "name"
         ]

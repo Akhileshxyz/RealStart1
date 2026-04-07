@@ -20,7 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+uploads
 # Virtual Environment
 venv/
 env/
@@ -86,3 +86,5 @@ desktop.ini
 *.temp
 .temp/
 
+# Backup Files
+bkp files/
