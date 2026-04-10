@@ -12,12 +12,6 @@ class PredictionPointSchema(BaseModel):
     value1: float
     value2: float
 
-class SubAreaSchema(BaseModel):
-    name: str
-    image: str
-    desc: str
-    growth: str
-
 class PoliticalAgendaSchema(BaseModel):
     mla: str
     mp: str
@@ -86,7 +80,7 @@ class CityBase(BaseModel):
     price_prediction: List[PredictionPointSchema] = [] 
 
     # Locations
-    top_sub_areas: List[SubAreaSchema] = []
+    top_developed_projects: List[UUID] = []
     
     # Politics & Policy
     political_infrastructure_agenda: PoliticalAgendaSchema = Field(default_factory=lambda: PoliticalAgendaSchema(mla="", mp=""))
@@ -94,7 +88,7 @@ class CityBase(BaseModel):
 
     # Extra
     landmarks_id_list: List[UUID] = []
-    upcoming_projects_list: List[str] = []
+    upcoming_projects_list: List[UUID] = []
     is_active: bool = True
 
 class CityCreate(CityBase):
@@ -122,7 +116,7 @@ class CityUpdate(BaseModel):
     price_growth_history: Optional[List[PricePointSchema]] = None
     price_prediction: Optional[List[PredictionPointSchema]] = None
 
-    top_sub_areas: Optional[List[SubAreaSchema]] = None
+    top_developed_projects: Optional[List[UUID]] = None
     political_infrastructure_agenda: Optional[PoliticalAgendaSchema] = None
     key_policies: Optional[List[str]] = None
     
@@ -139,9 +133,16 @@ class CityResponse(CityBase):
         from_attributes = True
 
 class CityPublicDetailsResponse(CityBase):
-    """City details with RESOLVED landmark objects for public view"""
+    """City details with RESOLVED objects for public view"""
     id: UUID
     landmarks: List[LandmarkRichResponse] = []
+    top_developed_projects: List[Any] = [] # Resolved project objects
+    upcoming_projects_list: List[Any] = [] # Resolved upcoming projects
     
     # Hide the raw ID list in the public details API
     landmarks_id_list: Optional[List[UUID]] = Field(None, exclude=True)
+    # The raw top_developed_projects from CityBase will be overridden by the List[Any] above in response model, 
+    # but to be safe and clean, we can exclude the raw UUID list if needed. 
+    # Actually, CityBase has top_developed_projects: List[UUID]. 
+    # We want to return list of objects under the same key.
+

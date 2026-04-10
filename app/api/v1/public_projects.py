@@ -174,6 +174,7 @@ async def _map_project_to_public_detail(project: Project) -> PublicProjectDetail
         rating=round(avg_rating, 1),
         hero_image=hero_image,
         price_display=price_display,
+        price_value=int(project.min_price) if project.min_price else None,
         unit_type=unit_type,
         description=project.description or "No description available",
         photos=project.gallery_images or [hero_image],

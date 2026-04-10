@@ -13,12 +13,6 @@ class PredictionPoint(BaseModel):
     value1: float # e.g. City Prediction
     value2: float # e.g. State Prediction
 
-class SubArea(BaseModel):
-    name: str 
-    image: str 
-    desc: str
-    growth: str
-
 class PoliticalAgenda(BaseModel):
     mla: str
     mp: str
@@ -52,7 +46,7 @@ class City(Document):
     price_prediction: List[PredictionPoint] = [] 
     
     # Locations
-    top_sub_areas: List[SubArea] = []
+    top_developed_projects: List[UUID] = []
     
     # Politics & Policy
     political_infrastructure_agenda: PoliticalAgenda = Field(default_factory=lambda: PoliticalAgenda(mla="", mp=""))
@@ -60,7 +54,7 @@ class City(Document):
 
     # System fields
     landmarks_id_list: List[UUID] = [] 
-    upcoming_projects_list: List[str] = [] 
+    upcoming_projects_list: List[UUID] = [] 
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -73,6 +73,7 @@ class FeaturedProjectCard(BaseModel):
     slug: str
     location_name: Optional[str] = None   # city field
     price_display: Optional[str] = None   # formatted min_price/sqft
+    price_value: Optional[int] = None     # raw min_price integer
     thumbnail_url: Optional[str] = None   # first gallery image
 
 class FeaturedProjectsEnvelope(BaseModel):
@@ -198,9 +199,41 @@ async def get_city_by_slug(slug: str) -> Any:
                 amenities=amenities
             ))
 
+    # Fetch detailed projects
+    resolved_projects = []
+    if city.top_developed_projects:
+        db_projects = await Project.find(In(Project.id, city.top_developed_projects)).to_list()
+        for p in db_projects:
+            resolved_projects.append(FeaturedProjectCard(
+                id=p.id,
+                name=p.name,
+                slug=p.slug,
+                location_name=p.city,
+                price_display=_format_price(p.min_price),
+                price_value=int(p.min_price) if p.min_price else None,
+                thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
+            ))
+
+    # Fetch upcoming projects
+    resolved_upcoming = []
+    if city.upcoming_projects_list:
+        db_upcoming = await Project.find(In(Project.id, city.upcoming_projects_list)).to_list()
+        for p in db_upcoming:
+            resolved_upcoming.append(FeaturedProjectCard(
+                id=p.id,
+                name=p.name,
+                slug=p.slug,
+                location_name=p.city,
+                price_display=_format_price(p.min_price),
+                price_value=int(p.min_price) if p.min_price else None,
+                thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
+            ))
+
     # Construct complete response
     response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
     response_data.landmarks = landmarks
+    response_data.top_developed_projects = resolved_projects
+    response_data.upcoming_projects_list = resolved_upcoming
     
     return response_data
 
@@ -455,6 +488,7 @@ async def list_featured_projects(
             slug=p.slug,
             location_name=p.city,
             price_display=_format_price(p.min_price),
+            price_value=int(p.min_price) if p.min_price else None,
             thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
         )
         for p in projects

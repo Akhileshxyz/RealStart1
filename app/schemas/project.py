@@ -209,6 +209,7 @@ class PublicProjectDetailResponse(BaseModel):
     rating: float
     hero_image: Optional[str]
     price_display: str
+    price_value: Optional[int] = None
     unit_type: str
     description: str
     
