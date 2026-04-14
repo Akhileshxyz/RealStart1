@@ -29,13 +29,15 @@ class City(Document):
     # Financial/Price Stats
     avg_appreciation_start_value: float = 0 
     avg_appreciation_end_value: float = 0 
+    # Consolidated Market Intelligence Fields (The 6 Boxes)
     avg_commercial_plot_price: float = 0
     avg_residential_plot_price: float = 0
-    residential_rent_2bhk_description: str = "" 
+    avg_rental_2bhk: Optional[str] = None # e.g. "₹9,000 – ₹13,000"
+    economic_output: Optional[str] = None # e.g. "₹10,000 – ₹12,000 Crores"
+    population: Optional[str] = None # e.g. "1.40 Lakhs"
+    appreciation_potential_5yr: Optional[str] = None # e.g. "35% – 45%"
     
-    # NEW FIELDS: Population, Yield, and Descriptions
-    population_urban: Optional[str] = None # e.g. "13.6M"
-    rental_yield: Optional[str] = None # e.g. "3.2%"
+    # Other Descriptions
     feature_description: Optional[str] = None # One-liner highlights
     city_description: Optional[str] = None # Deep full city overview
 
@@ -54,7 +56,12 @@ class City(Document):
 
     # System fields
     landmarks_id_list: List[UUID] = [] 
-    upcoming_projects_list: List[UUID] = [] 
+    upcoming_projects_list: List[UUID] = [] # Resolved projects (links)
+    
+    # Market Intelligence Text Lists
+    amenities: List[str] = []
+    market_upcoming_projects: List[str] = []
+    
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

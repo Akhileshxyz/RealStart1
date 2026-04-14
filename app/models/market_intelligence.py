@@ -15,7 +15,7 @@ class MarketIntelligence(Document):
     # Box Content / Stats
     avg_commercial_plot_price: float
     avg_residential_plot_price: float
-    avg_rental_2bhk: float
+    avg_rental_2bhk: str # Changed from float to str
     avg_rental_yield: Optional[str] = None
     economic_output: str
     population: str

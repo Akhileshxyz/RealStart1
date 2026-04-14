@@ -235,6 +235,15 @@ async def get_city_by_slug(slug: str) -> Any:
     response_data.top_developed_projects = resolved_projects
     response_data.upcoming_projects_list = resolved_upcoming
     
+    # Fetch Market Intelligence for deeper insights (Maps, Investment Landmarks)
+    # We find the main city landmark first
+    city_landmark = await Landmark.find_one(Landmark.name == city.name, Landmark.city_id == city.id)
+    if city_landmark:
+        intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == city_landmark.id)
+        if intel:
+            response_data.investment_landmarks = intel.investment_landmarks
+            response_data.map_landmarks = intel.map_landmarks
+    
     return response_data
 
 @router.get(

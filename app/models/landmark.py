@@ -29,17 +29,22 @@ class Landmark(Document):
     city_id: UUID 
     hero_desc: Optional[str] = None
     description: Optional[str] = None
+    city: Optional[str] = None
     
     # Location
     location: Optional[GeoJSONLocation] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     zone: Optional[str] = None
     
     # Media
     images: List[str] = [] # Array of image paths
+    image_url: Optional[str] = None
     
     # Financial/Market Data
     avg_plot_price: float = 0
     avg_apartment_price: float = 0
+    avg_price_per_sqft: float = 0
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE

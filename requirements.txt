@@ -21,3 +21,4 @@ razorpay==1.4.2
 
 # Environment variables
 python-dotenv==1.0.1
+setuptools

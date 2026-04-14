@@ -63,13 +63,16 @@ class CityBase(BaseModel):
     # Financial/Price Stats
     avg_appreciation_start_value: float = 0
     avg_appreciation_end_value: float = 0
+    
+    # Consolidated Market Intelligence Fields (The 6 Boxes)
     avg_commercial_plot_price: float = 0
     avg_residential_plot_price: float = 0
-    residential_rent_2bhk_description: str = ""
-
-    # NEW FIELDS
-    population_urban: Optional[str] = None
-    rental_yield: Optional[str] = None
+    avg_rental_2bhk: Optional[str] = None
+    economic_output: Optional[str] = None
+    population: Optional[str] = None
+    appreciation_potential_5yr: Optional[str] = None
+    
+    # Descriptions
     feature_description: Optional[str] = None
     city_description: Optional[str] = None
 
@@ -89,6 +92,11 @@ class CityBase(BaseModel):
     # Extra
     landmarks_id_list: List[UUID] = []
     upcoming_projects_list: List[UUID] = []
+    
+    # Market Intelligence Text Lists
+    amenities: List[str] = []
+    market_upcoming_projects: List[str] = []
+    
     is_active: bool = True
 
 class CityCreate(CityBase):
@@ -106,10 +114,10 @@ class CityUpdate(BaseModel):
     avg_appreciation_end_value: Optional[float] = None
     avg_commercial_plot_price: Optional[float] = None
     avg_residential_plot_price: Optional[float] = None
-    residential_rent_2bhk_description: Optional[str] = None
-
-    population_urban: Optional[str] = None
-    rental_yield: Optional[str] = None
+    avg_rental_2bhk: Optional[str] = None
+    economic_output: Optional[str] = None
+    population: Optional[str] = None
+    appreciation_potential_5yr: Optional[str] = None
     feature_description: Optional[str] = None
     city_description: Optional[str] = None
     
@@ -138,6 +146,10 @@ class CityPublicDetailsResponse(CityBase):
     landmarks: List[LandmarkRichResponse] = []
     top_developed_projects: List[Any] = [] # Resolved project objects
     upcoming_projects_list: List[Any] = [] # Resolved upcoming projects
+    
+    # Intelligence Data (Merged from MarketIntelligence)
+    investment_landmarks: List[Any] = []
+    map_landmarks: List[Any] = []
     
     # Hide the raw ID list in the public details API
     landmarks_id_list: Optional[List[UUID]] = Field(None, exclude=True)
