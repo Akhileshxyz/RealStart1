@@ -81,28 +81,7 @@ class FeaturedProjectsEnvelope(BaseModel):
     results: int
     data: List[FeaturedProjectCard]
 
-class BlogTheme(BaseModel):
-    bg: str = "#1a2230"
-    accent: str = "#94a3b8"
-
-class BlogCard(BaseModel):
-    id: str
-    title: str
-    description: str
-    date_formatted: str           # "08/04/2025 04:30 PM"
-    category: str
-    tag: Optional[str] = None
-    theme: BlogTheme
-    image_url: Optional[str] = None
-
-class BlogsEnvelope(BaseModel):
-    status: str = "success"
-    results: int
-    data: List[BlogCard]
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# --- Helpers ---
 
 def _format_price(value: Optional[float]) -> Optional[str]:
     """Format a raw price-per-sqft float → '₹4,850'."""
@@ -513,45 +492,3 @@ async def list_featured_projects(
 # 3. Blogs  →  GET /api/v1/public/blogs
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/blogs",
-    response_model=BlogsEnvelope,
-    tags=["Public - Home"],
-    summary="Latest Blogs for BlogSection & /blogs page",
-)
-async def list_blogs(
-    limit: int = Query(3, ge=1, le=50),
-    category: Optional[str] = Query(None, description="Filter by category e.g. 'Commercial'"),
-) -> Any:
-    """
-    Returns published blogs sorted by published_at descending.
-    Real-time data (No Cache).
-    """
-    query = Blog.find(Blog.is_published == True)
-    if category:
-        query = query.find(Blog.category == category)
-
-    blogs = await query.sort(-Blog.published_at).limit(limit).to_list()
-
-    data = [
-        BlogCard(
-            id=str(b.id),
-            title=b.title,
-            description=b.description,
-            date_formatted=_format_datetime(b.published_at or b.created_at),
-            category=b.category,
-            tag=b.tag,
-            theme=BlogTheme(
-                bg=b.bg_color or "#1a2230",
-                accent=b.accent_color or "#94a3b8",
-            ),
-            image_url=b.image_url,
-        )
-        for b in blogs
-    ]
-
-    return {
-        "status": "success",
-        "results": len(data),
-        "data": [d.model_dump() for d in data],
-    }

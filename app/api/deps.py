@@ -11,6 +11,7 @@ from app.schemas.auth import TokenPayload
 
 # HTTPBearer scheme for Swagger UI
 security_scheme = HTTPBearer()
+optional_security_scheme = HTTPBearer(auto_error=False)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> User:
     token = credentials.credentials
@@ -89,9 +90,10 @@ async def get_current_active_team_member(
         )
     return current_user
 
-async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)) -> Optional[User]:
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security_scheme)) -> Optional[User]:
+    if not credentials:
+        return None
     try:
-        token = credentials.credentials
         user = await get_current_user(credentials)
         return user
     except HTTPException:

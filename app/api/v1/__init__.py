@@ -38,6 +38,7 @@ __all__ = [
     "admin_blogs",
     "admin_reels",
     "user_reels",
-    "admin_cities"
+    "admin_cities",
+    "public_blogs"
 
 ]
