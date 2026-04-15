@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.landmark import RiskProfile
 
 class LandmarkSelection(BaseModel):
@@ -35,7 +35,7 @@ class LandmarkSummary(BaseModel):
     name: str
     city_id: UUID
     images: List[str] = []
-    avg_plot_price: str = "0"
+    avg_plot_price: float = 0
     location: Optional[GeoJSONLocationSchema] = None
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -63,12 +63,34 @@ class LandmarkBase(BaseModel):
     images: List[str] = []
     
     # Financial Stats
-    avg_plot_price: str = "0"
-    avg_apartment_price: str = "0"
-    avg_price_per_sqft: str = "0"
+    avg_plot_price: Union[float, str] = 0
+    avg_apartment_price: Union[float, str] = 0
+    avg_price_per_sqft: Union[float, str] = 0
     residential_rent_2bhk: str = ""
     rental_yield: str = ""
     risk_profile: RiskProfile = RiskProfile.MODERATE
+
+    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", mode="before")
+    @classmethod
+    def parse_price_string(cls, v: Any) -> float:
+        if isinstance(v, str):
+            clean_v = v.upper().replace(" ", "").replace(",", "")
+            if clean_v.endswith("L"):
+                try:
+                    return float(clean_v[:-1])
+                except ValueError:
+                    return 0.0
+            elif clean_v.endswith("CR"):
+                try:
+                    # 1 Cr = 100 Lakhs
+                    return float(clean_v[:-2]) * 100
+                except ValueError:
+                    return 0.0
+            try:
+                return float(clean_v)
+            except ValueError:
+                return 0.0
+        return v
     
     price_trend: Optional[str] = None
     price_trend_3m: Optional[str] = None
@@ -105,9 +127,9 @@ class LandmarkUpdate(BaseModel):
     zone: Optional[str] = None
     images: Optional[List[str]] = None
     
-    avg_plot_price: Optional[str] = None
-    avg_apartment_price: Optional[str] = None
-    avg_price_per_sqft: Optional[str] = None
+    avg_plot_price: Optional[Union[float, str]] = None
+    avg_apartment_price: Optional[Union[float, str]] = None
+    avg_price_per_sqft: Optional[Union[float, str]] = None
     residential_rent_2bhk: Optional[str] = None
     rental_yield: Optional[str] = None
     risk_profile: Optional[RiskProfile] = None
@@ -126,6 +148,30 @@ class LandmarkUpdate(BaseModel):
     upcoming_project_ids: Optional[List[UUID]] = None
     nearby_project_ids: Optional[List[UUID]] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+
+    # Re-use validator for Update too
+    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", mode="before")
+    @classmethod
+    def parse_price_string(cls, v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            clean_v = v.upper().replace(" ", "").replace(",", "")
+            if clean_v.endswith("L"):
+                try:
+                    return float(clean_v[:-1])
+                except ValueError:
+                    return 0.0
+            elif clean_v.endswith("CR"):
+                try:
+                    return float(clean_v[:-2]) * 100
+                except ValueError:
+                    return 0.0
+            try:
+                return float(clean_v)
+            except ValueError:
+                return 0.0
+        return v
 
 class LandmarkResponse(LandmarkBase):
     id: UUID
