@@ -27,11 +27,11 @@ class City(Document):
     city_report_pdf: Optional[str] = None 
     
     # Financial/Price Stats
-    avg_appreciation_start_value: float = 0 
-    avg_appreciation_end_value: float = 0 
+    avg_appreciation_start_value: str = "0" 
+    avg_appreciation_end_value: str = "0" 
     # Consolidated Market Intelligence Fields (The 6 Boxes)
-    avg_commercial_plot_price: float = 0
-    avg_residential_plot_price: float = 0
+    avg_commercial_plot_price: str = "0"
+    avg_residential_plot_price: str = "0"
     avg_rental_2bhk: Optional[str] = None # e.g. "₹9,000 – ₹13,000"
     economic_output: Optional[str] = None # e.g. "₹10,000 – ₹12,000 Crores"
     population: Optional[str] = None # e.g. "1.40 Lakhs"

@@ -61,12 +61,12 @@ class CityBase(BaseModel):
     city_report_pdf: Optional[str] = None
     
     # Financial/Price Stats
-    avg_appreciation_start_value: float = 0
-    avg_appreciation_end_value: float = 0
+    avg_appreciation_start_value: str = "0"
+    avg_appreciation_end_value: str = "0"
     
     # Consolidated Market Intelligence Fields (The 6 Boxes)
-    avg_commercial_plot_price: float = 0
-    avg_residential_plot_price: float = 0
+    avg_commercial_plot_price: str = "0"
+    avg_residential_plot_price: str = "0"
     avg_rental_2bhk: Optional[str] = None
     economic_output: Optional[str] = None
     population: Optional[str] = None
@@ -110,10 +110,10 @@ class CityUpdate(BaseModel):
     images: Optional[List[str]] = None
     city_report_pdf: Optional[str] = None
     
-    avg_appreciation_start_value: Optional[float] = None
-    avg_appreciation_end_value: Optional[float] = None
-    avg_commercial_plot_price: Optional[float] = None
-    avg_residential_plot_price: Optional[float] = None
+    avg_appreciation_start_value: Optional[str] = None
+    avg_appreciation_end_value: Optional[str] = None
+    avg_commercial_plot_price: Optional[str] = None
+    avg_residential_plot_price: Optional[str] = None
     avg_rental_2bhk: Optional[str] = None
     economic_output: Optional[str] = None
     population: Optional[str] = None

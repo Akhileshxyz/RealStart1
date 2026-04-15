@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Body, status
 from app.api import deps
 from app.models.user import User
 from app.models.landmark import Landmark
@@ -15,7 +15,9 @@ from app.schemas.landmark import (
     LandmarkCreate, 
     LandmarkUpdate,
     LandmarkSummary,
-    UpcomingProjectSummary
+    LandmarkSelection,
+    UpcomingProjectSummary,
+    LandmarkBulkDelete
 )
 from beanie.operators import In
 from app.core.config import settings
@@ -99,7 +101,25 @@ async def list_all_landmarks(
     landmarks = await Landmark.find(query).skip(skip).limit(limit).to_list()
     
     # Get unique city IDs for filtering
-    unique_city_ids = await Landmark.distinct("city_id")
+    raw_city_ids = await Landmark.distinct("city_id")
+    unique_city_ids = []
+    if raw_city_ids:
+        import ast
+        import bson
+        for uid in raw_city_ids:
+            if isinstance(uid, UUID):
+                unique_city_ids.append(uid)
+            elif isinstance(uid, (bytes, bson.binary.Binary)):
+                unique_city_ids.append(UUID(bytes=bytes(uid)))
+            elif isinstance(uid, str):
+                try:
+                    unique_city_ids.append(UUID(uid))
+                except ValueError:
+                    if uid.startswith("b'") and uid.endswith("'"):
+                        try:
+                            unique_city_ids.append(UUID(bytes=ast.literal_eval(uid)))
+                        except:
+                            pass
     
     # Resolve relationships for the list (limited for performance)
     enriched_data = []
@@ -111,7 +131,7 @@ async def list_all_landmarks(
         "skip": skip,
         "limit": limit,
         "data": enriched_data,
-        "unique_cities": unique_city_ids if unique_city_ids else []
+        "unique_cities": unique_city_ids
     }
 
 @router.post("/", response_model=LandmarkResponse)
@@ -196,6 +216,54 @@ async def delete_landmark(
     
     await landmark.delete()
     return {"message": "Landmark deleted successfully"}
+
+@router.get("/selection", response_model=List[LandmarkSelection])
+async def get_landmarks_selection_list(
+    city_id: Optional[UUID] = Query(None),
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Lightweight list of landmarks (ID, Name, City, Zone) for multi-select dropdowns.
+    """
+    query = {}
+    if city_id:
+        query["city_id"] = city_id
+    
+    # Use projection for efficiency
+    landmarks = await Landmark.find(query).project(LandmarkSelection).to_list()
+    return landmarks
+
+@router.delete("/bulk-delete", status_code=status.HTTP_200_OK)
+async def bulk_delete_landmarks(
+    payload: LandmarkBulkDelete,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Delete multiple landmarks and their associated files.
+    """
+    deleted_count = 0
+    errors = []
+    
+    for landmark_id in payload.landmark_ids:
+        try:
+            landmark = await Landmark.get(landmark_id)
+            if not landmark:
+                errors.append({"id": str(landmark_id), "error": "Not found"})
+                continue
+            
+            # Cleanup files
+            shutil.rmtree(Path(settings.UPLOAD_DIR) / "localities" / str(landmark_id), ignore_errors=True)
+            
+            await landmark.delete()
+            deleted_count += 1
+        except Exception as e:
+            errors.append({"id": str(landmark_id), "error": str(e)})
+            
+    return {
+        "message": f"Successfully deleted {deleted_count} landmarks.",
+        "deleted_count": deleted_count,
+        "errors": errors if errors else None
+    }
 
 @router.get("/performance/stats", response_model=Any)
 async def get_landmark_performance(

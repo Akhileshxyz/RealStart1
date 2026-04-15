@@ -4,6 +4,18 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from app.models.landmark import RiskProfile
 
+class LandmarkSelection(BaseModel):
+    """Minimal schema for populating multi-select dropdowns"""
+    id: UUID
+    name: str
+    city_id: Optional[UUID] = None
+    zone: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class LandmarkBulkDelete(BaseModel):
+    landmark_ids: List[UUID]
+
 class LandmarkPricePointSchema(BaseModel):
     year: int
     value: float
@@ -23,7 +35,7 @@ class LandmarkSummary(BaseModel):
     name: str
     city_id: UUID
     images: List[str] = []
-    avg_plot_price: float = 0
+    avg_plot_price: str = "0"
     location: Optional[GeoJSONLocationSchema] = None
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -51,8 +63,9 @@ class LandmarkBase(BaseModel):
     images: List[str] = []
     
     # Financial Stats
-    avg_plot_price: float = 0
-    avg_apartment_price: float = 0
+    avg_plot_price: str = "0"
+    avg_apartment_price: str = "0"
+    avg_price_per_sqft: str = "0"
     residential_rent_2bhk: str = ""
     rental_yield: str = ""
     risk_profile: RiskProfile = RiskProfile.MODERATE
@@ -92,8 +105,9 @@ class LandmarkUpdate(BaseModel):
     zone: Optional[str] = None
     images: Optional[List[str]] = None
     
-    avg_plot_price: Optional[float] = None
-    avg_apartment_price: Optional[float] = None
+    avg_plot_price: Optional[str] = None
+    avg_apartment_price: Optional[str] = None
+    avg_price_per_sqft: Optional[str] = None
     residential_rent_2bhk: Optional[str] = None
     rental_yield: Optional[str] = None
     risk_profile: Optional[RiskProfile] = None

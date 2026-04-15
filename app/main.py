@@ -157,7 +157,11 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 
 # CORS Configuration (Outer-most to handle final headers)
-allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+if "http://localhost:5173" not in allowed_origins:
+    allowed_origins.append("http://localhost:5173")
+if "http://127.0.0.1:5173" not in allowed_origins:
+    allowed_origins.append("http://127.0.0.1:5173")
 
 app.add_middleware(
     CORSMiddleware,

@@ -42,9 +42,9 @@ class Landmark(Document):
     image_url: Optional[str] = None
     
     # Financial/Market Data
-    avg_plot_price: float = 0
-    avg_apartment_price: float = 0
-    avg_price_per_sqft: float = 0
+    avg_plot_price: str = "0"
+    avg_apartment_price: str = "0"
+    avg_price_per_sqft: str = "0"
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE

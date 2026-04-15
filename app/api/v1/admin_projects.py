@@ -1,10 +1,10 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from app.api import deps
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
-from app.schemas.project import ProjectResponse, ProjectAdminUpdate
+from app.schemas.project import ProjectResponse, ProjectAdminUpdate, ProjectSelection
 from app.utils.cache_invalidation import invalidate_project_cache
 from app.models.subscription import DeveloperSubscription, SubscriptionStatus
 from typing import Dict
@@ -210,3 +210,17 @@ async def get_project_communication_history(
          
     history = await ProjectCommunication.find({"project_id": project_id}).sort("-date").to_list()
     return history
+
+@router.get("/selection", response_model=List[ProjectSelection])
+async def get_projects_selection_list(
+    status: Optional[ProjectStatus] = Query(None),
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Lightweight list of projects for selection lists.
+    """
+    query = {}
+    if status:
+        query["status"] = status
+    
+    return await Project.find(query).project(ProjectSelection).to_list()

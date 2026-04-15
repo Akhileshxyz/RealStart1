@@ -10,6 +10,15 @@ from app.models.project import (
     LegalDocumentType,
     LegalCompliance
 )
+from pydantic import ConfigDict
+
+class ProjectSelection(BaseModel):
+    """Minimal schema for selection lists"""
+    id: UUID
+    name: str
+    status: ProjectStatus
+
+    model_config = ConfigDict(from_attributes=True)
 
 # Legal Document Schemas
 class LegalDocumentCreate(BaseModel):
