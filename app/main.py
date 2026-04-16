@@ -53,7 +53,8 @@ from app.api.v1 import (
     admin_reels,
     user_reels,
     admin_cities,
-    public_blogs
+    public_blogs,
+    public_landmarks
 )
 
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
@@ -176,6 +177,7 @@ app.add_middleware(
 app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
 app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Projects"])
 app.include_router(public_blogs.router, prefix=f"{settings.API_V1_STR}/public/blogs", tags=["Public Blogs"])
+app.include_router(public_landmarks.router, prefix=f"{settings.API_V1_STR}/public/landmarks", tags=["Public - Landmarks"])
 app.include_router(public_home.router, prefix=f"{settings.API_V1_STR}/public", tags=["Public - Home"])
 app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}")
 app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["User - Interactions"])

@@ -89,6 +89,21 @@ def _format_price(value: Optional[float]) -> Optional[str]:
         return None
     return f"₹{int(value):,}"
 
+
+def _format_price_lakhs(value: float) -> str:
+    """Format price in Lakhs or Crores (base is per 1200 sqft)."""
+    if value >= 100:
+        return f"₹{value / 100:.2f} Cr"
+    return f"₹{int(value)} L"
+
+
+def _format_total_price(base_price_per_1200sqft: float, sqft: int) -> str:
+    """Calculate total price for given sqft from base price per 1200 sqft."""
+    multiplier = sqft / 1200
+    total = base_price_per_1200sqft * multiplier
+    return _format_price_lakhs(total)
+
+
 def _format_datetime(dt: Optional[datetime]) -> str:
     if dt is None:
         return ""
@@ -271,22 +286,45 @@ async def get_landmarks(
         # Priority 2: Geospatial fallback (nearest 5 within 30km)
         nearby_projects = []
         if landmark.nearby_project_ids:
-            from app.models.project import Project
             fetched_nearby_projs = await Project.find(In(Project.id, landmark.nearby_project_ids)).to_list()
             nearby_projects = [p.model_dump() for p in fetched_nearby_projs]
+
         
         if not nearby_projects:
             nearby_projects = [item[1].model_dump() for item in nearby[:5]]
             
         data["nearby_projects"] = nearby_projects
 
-        # 2. Resolve Upcoming Projects (Explicit ID list)
-        upcoming_projects = []
-        if landmark.upcoming_project_ids:
-            from app.models.project import Project
-            fetched_upcoming = await Project.find(In(Project.id, landmark.upcoming_project_ids)).to_list()
-            upcoming_projects = [p.model_dump() for p in fetched_upcoming]
-        data["upcoming_projects_list"] = upcoming_projects
+        # 2. Resolve Upcoming Projects
+        # Logic: Both manual IDs and field-based matching (landmark_id)
+        # We don't filter by status or hidden here as per user request
+        upcoming_via_field = await Project.find(Project.landmark_id == landmark.id).to_list()
+        
+        manual_ids = landmark.upcoming_project_ids or []
+        existing_ids = {p.id for p in upcoming_via_field}
+        remaining_ids = [pid for pid in manual_ids if pid not in existing_ids]
+        
+        upcoming_manual = []
+        if remaining_ids:
+            upcoming_manual = await Project.find(In(Project.id, remaining_ids)).to_list()
+            
+        all_upcoming = upcoming_via_field + upcoming_manual
+        from app.utils.media import public_image_url
+        data["upcoming_projects_list"] = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "slug": p.slug,
+                "min_price": p.min_price,
+                "max_price": p.max_price,
+                "property_type": getattr(p, "property_type", None),
+                "status": getattr(p, "status", None),
+                "gallery_images": [public_image_url(img) for img in p.gallery_images] if p.gallery_images else [],
+            }
+            for p in all_upcoming
+        ]
+
+
 
         # 3. Resolve Nearby Landmarks (Explicit ID list)
         nearby_landmarks = []
@@ -366,14 +404,14 @@ async def compare_landmarks(
         )
 
         # Price Snapshot Logic
-        res_price = mi.avg_residential_plot_price if mi else lm.avg_plot_price
-        comm_price = mi.avg_commercial_plot_price if mi else lm.avg_plot_price * 1.5
+        res_price = str(mi.avg_residential_plot_price) if mi else str(lm.avg_plot_price)
+        comm_price = str(mi.avg_commercial_plot_price) if mi else str(lm.avg_plot_price)
         appreciation = mi.appreciation_potential_5yr if mi else "+35%"
         
-        # Formatting values: e.g. "₹8,500 - ₹12,000"
+        # Show total prices as strings
         price_snapshot = PriceSnapshot(
-            residential_land=f"₹{int(res_price):,} - ₹{int(res_price * 1.3):,}",
-            commercial_land=f"₹{int(comm_price):,} - ₹{int(comm_price * 1.2):,}",
+            residential_land=res_price,
+            commercial_land=comm_price,
             rental_rent=lm.residential_rent_2bhk or "₹15,000 - ₹20,000",
             appreciation_5yr=appreciation
         )

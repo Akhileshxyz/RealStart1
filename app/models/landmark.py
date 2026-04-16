@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Union
 from enum import Enum
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class RiskProfile(str, Enum):
     LOW = "low"
@@ -16,12 +16,45 @@ class GeoJSONLocation(BaseModel):
 
 class LandmarkPricePoint(BaseModel):
     year: int
-    value: float
+    value: Union[float, str] = 0
+    reason: str = ""
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def ensure_string_value(cls, v):
+        if v is None:
+            return ""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def default_reason(cls, v):
+        if v is None:
+            return ""
+        return v
 
 class LandmarkPredictionPoint(BaseModel):
     year: int
-    value1: float # e.g. Locality Value
-    value2: float # e.g. City Avg Value
+    value: Union[float, str] = 0
+    reason: str = ""
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def ensure_string_value(cls, v):
+        if v is None:
+            return ""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def default_reason(cls, v):
+        if v is None:
+            return ""
+        return v
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
@@ -42,9 +75,9 @@ class Landmark(Document):
     image_url: Optional[str] = None
     
     # Financial/Market Data
-    avg_plot_price: float = 0
-    avg_apartment_price: float = 0
-    avg_price_per_sqft: float = 0
+    avg_plot_price: Union[float, str] = 0
+    avg_apartment_price: Union[float, str] = 0
+    avg_price_per_sqft: Union[float, str] = 0
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE

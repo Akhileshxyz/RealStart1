@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class MarketHistoryItem(BaseModel):
     year: int
@@ -36,6 +36,11 @@ class MapLandmark(BaseModel):
     longitude: Optional[float] = None
     landmark_id: Optional[UUID] = None
 
+class UpcomingDevelopmentItem(BaseModel):
+    """Single upcoming development project with details."""
+    title: str
+    detail: Optional[str] = None
+
 class MarketIntelligenceBase(BaseModel):
     landmark_id: UUID
     parent_landmark_id: Optional[UUID] = None
@@ -52,7 +57,7 @@ class MarketIntelligenceBase(BaseModel):
     growth_prediction: List[MarketPredictionItem]
     political_agenda: PoliticalAgenda
     amenities: List[Dict[str, Any]]
-    upcoming_projects: List[str]
+    upcoming_projects: List[UpcomingDevelopmentItem]
     investment_landmarks: List[InvestmentLandmark]
     map_landmarks: List[MapLandmark]
     latitude: Optional[float] = None
@@ -78,7 +83,7 @@ class MarketIntelligenceUpdate(BaseModel):
     growth_prediction: Optional[List[MarketPredictionItem]] = None
     political_agenda: Optional[PoliticalAgenda] = None
     amenities: Optional[List[Dict[str, Any]]] = None
-    upcoming_projects: Optional[List[str]] = None
+    upcoming_projects: Optional[List[UpcomingDevelopmentItem]] = None
     investment_landmarks: Optional[List[InvestmentLandmark]] = None
     map_landmarks: Optional[List[MapLandmark]] = None
     latitude: Optional[float] = None
@@ -110,15 +115,15 @@ class MarketCityListItem(BaseModel):
 
 class BoxContentSection(BaseModel):
     """Stats grid on city/area detail (format currency/units in the app)."""
-    avg_commercial_plot_price: float = Field(
+    avg_commercial_plot_price: str = Field(
         ...,
-        description="Avg commercial land/plot — UI grid ‘commercial’ column.",
+        description="Avg commercial land/plot — UI grid 'commercial' column.",
     )
-    avg_residential_plot_price: float = Field(
+    avg_residential_plot_price: str = Field(
         ...,
-        description="Avg residential land/plot — UI grid ‘residential’ column.",
+        description="Avg residential land/plot — UI grid 'residential' column.",
     )
-    avg_rental_2bhk: float = Field(
+    avg_rental_2bhk: str = Field(
         ...,
         description="Typical 2BHK monthly rent — UI rent column.",
     )
@@ -142,9 +147,9 @@ class BoxContentSection(BaseModel):
 
 class AreaBoxContentSection(BaseModel):
     """Four stat cards for area MI screen only (no economic_output / population)."""
-    avg_commercial_plot_price: float
-    avg_residential_plot_price: float
-    avg_rental_2bhk: float
+    avg_commercial_plot_price: str
+    avg_residential_plot_price: str
+    avg_rental_2bhk: str
     avg_rental_yield: Optional[str] = None
     appreciation_potential_5yr: str
 
@@ -240,12 +245,6 @@ class MarketIntelligenceDetailPublic(BaseModel):
         None,
         description="Present for city rows when include_areas=true: sub-areas for tabs / drill-down.",
     )
-
-
-class UpcomingDevelopmentItem(BaseModel):
-    """Single row in ‘Upcoming developments’ (title + optional subtitle)."""
-    title: str
-    detail: Optional[str] = None
 
 
 class AreaDevelopedLayoutPublic(BaseModel):
