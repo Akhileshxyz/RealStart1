@@ -2,8 +2,10 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Union
 from enum import Enum
+import re
+from app.utils.parsers import parse_price_string
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 class RiskProfile(str, Enum):
     LOW = "low"
@@ -18,10 +20,30 @@ class LandmarkPricePoint(BaseModel):
     year: int
     value: float
 
+    @field_validator('value', mode='before')
+    @classmethod
+    def parse_value(cls, v: Any) -> float:
+        return parse_price_string(v)
+
 class LandmarkPredictionPoint(BaseModel):
     year: int
-    value1: float # e.g. Locality Value
-    value2: float # e.g. City Avg Value
+    value: Optional[Any] = None 
+    value1: float = 0 
+    value2: float = 0
+    reason: Optional[str] = None
+
+    @field_validator('value1', 'value2', 'value', mode='before')
+    @classmethod
+    def parse_values(cls, v: Any) -> float:
+        if v is None:
+            return 0.0
+        return parse_price_string(v)
+
+    @model_validator(mode='after')
+    def sync_legacy_value(self) -> 'LandmarkPredictionPoint':
+        if self.value and not self.value1:
+            self.value1 = self.value
+        return self
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
@@ -48,6 +70,11 @@ class Landmark(Document):
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE
+
+    @field_validator('avg_plot_price', 'avg_apartment_price', 'avg_price_per_sqft', mode='before')
+    @classmethod
+    def parse_financials(cls, v: Any) -> float:
+        return parse_price_string(v)
     
     price_trend: Optional[str] = None  # "rising", "stable", "falling"
     price_trend_3m: Optional[str] = None # e.g. "+5.2%"

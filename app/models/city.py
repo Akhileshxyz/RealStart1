@@ -1,17 +1,28 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import UUID, uuid4
 from datetime import datetime
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, field_validator
+from app.utils.parsers import parse_price_string
 from beanie import Document, Indexed
 
 class PricePoint(BaseModel):
     year: int
     value: float
 
+    @field_validator('value', mode='before')
+    @classmethod
+    def parse_value(cls, v: Any) -> float:
+        return parse_price_string(v)
+
 class PredictionPoint(BaseModel):
     year: int
     value1: float # e.g. City Prediction
     value2: float # e.g. State Prediction
+
+    @field_validator('value1', 'value2', mode='before')
+    @classmethod
+    def parse_values(cls, v: Any) -> float:
+        return parse_price_string(v)
 
 class PoliticalAgenda(BaseModel):
     mla: str
@@ -32,6 +43,12 @@ class City(Document):
     # Consolidated Market Intelligence Fields (The 6 Boxes)
     avg_commercial_plot_price: float = 0
     avg_residential_plot_price: float = 0
+
+    @field_validator('avg_appreciation_start_value', 'avg_appreciation_end_value', 
+                     'avg_commercial_plot_price', 'avg_residential_plot_price', mode='before')
+    @classmethod
+    def parse_financials(cls, v: Any) -> float:
+        return parse_price_string(v)
     avg_rental_2bhk: Optional[str] = None # e.g. "₹9,000 – ₹13,000"
     economic_output: Optional[str] = None # e.g. "₹10,000 – ₹12,000 Crores"
     population: Optional[str] = None # e.g. "1.40 Lakhs"
@@ -56,6 +73,7 @@ class City(Document):
 
     # System fields
     landmarks_id_list: List[UUID] = [] 
+    top_landmarks_to_invest: List[UUID] = []
     upcoming_projects_list: List[UUID] = [] # Resolved projects (links)
     
     # Market Intelligence Text Lists

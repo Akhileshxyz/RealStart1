@@ -23,6 +23,13 @@ class LandmarkRichResponse(BaseModel):
     image_url: Optional[str] = None
     location: Optional[Any] = None # GeoJSON coordinates
     amenities: Optional[List[str]] = [] # nearby_amenities
+    
+    avg_plot_price: Optional[float] = 0
+    avg_apartment_price: Optional[float] = 0
+    avg_price_per_sqft: Optional[float] = 0
+    residential_rent_2bhk: Optional[str] = ""
+    rental_yield: Optional[str] = "" 
+    risk_profile: Optional[str] = "moderate"
 
 class LandmarkFullPublicResponse(BaseModel):
     """Full Landmark details for Market Intelligence view"""
@@ -91,6 +98,7 @@ class CityBase(BaseModel):
 
     # Extra
     landmarks_id_list: List[UUID] = []
+    top_landmarks_to_invest: List[UUID] = []
     upcoming_projects_list: List[UUID] = []
     
     # Market Intelligence Text Lists
@@ -129,6 +137,7 @@ class CityUpdate(BaseModel):
     key_policies: Optional[List[str]] = None
     
     landmarks_id_list: Optional[List[UUID]] = None
+    top_landmarks_to_invest: Optional[List[UUID]] = None
     upcoming_projects_list: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
@@ -144,6 +153,7 @@ class CityPublicDetailsResponse(CityBase):
     """City details with RESOLVED objects for public view"""
     id: UUID
     landmarks: List[LandmarkRichResponse] = []
+    top_landmarks_to_invest: List[Any] = []
     top_developed_projects: List[Any] = [] # Resolved project objects
     upcoming_projects_list: List[Any] = [] # Resolved upcoming projects
     

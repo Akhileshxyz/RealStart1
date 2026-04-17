@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, List
+from typing import Optional, List, Any
 from beanie import Document
-from pydantic import Field
+from pydantic import Field, field_validator
+from app.utils.parsers import parse_price_string
 
 class Society(Document):
     """Housing society/apartment complex details"""
@@ -28,6 +29,13 @@ class Society(Document):
     price_range_min: Optional[float] = None  # in INR
     price_range_max: Optional[float] = None
     avg_price_per_sqft: Optional[float] = None
+
+    @field_validator('price_range_min', 'price_range_max', 'avg_price_per_sqft', mode='before')
+    @classmethod
+    def parse_prices(cls, v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        return parse_price_string(v)
 
     # Amenities
     amenities: List[str] = []

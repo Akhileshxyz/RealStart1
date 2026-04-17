@@ -175,7 +175,41 @@ async def get_city_by_slug(slug: str) -> Any:
                 name=lm.name,
                 image_url=lm.images[0] if lm.images else None,
                 location=lm.location.model_dump() if lm.location else None,
-                amenities=amenities
+                amenities=amenities,
+                avg_plot_price=lm.avg_plot_price,
+                avg_apartment_price=lm.avg_apartment_price,
+                avg_price_per_sqft=lm.avg_price_per_sqft,
+                residential_rent_2bhk=lm.residential_rent_2bhk,
+                rental_yield=lm.rental_yield,
+                risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
+            ))
+    
+    # Fetch TOP Investment Landmarks
+    top_investment_landmarks = []
+    if getattr(city, "top_landmarks_to_invest", None):
+        db_lm_invest = await Landmark.find(In(Landmark.id, city.top_landmarks_to_invest)).to_list()
+        for lm in db_lm_invest:
+            amenities = []
+            if isinstance(lm.nearby_amenities, list):
+                amenities = lm.nearby_amenities[:3]
+            elif isinstance(lm.nearby_amenities, dict):
+                for val in lm.nearby_amenities.values():
+                    if isinstance(val, list):
+                        amenities.extend(val)
+                amenities = amenities[:3]
+
+            top_investment_landmarks.append(LandmarkRichResponse(
+                id=lm.id,
+                name=lm.name,
+                image_url=lm.images[0] if lm.images else None,
+                location=lm.location.model_dump() if lm.location else None,
+                amenities=amenities,
+                avg_plot_price=lm.avg_plot_price,
+                avg_apartment_price=lm.avg_apartment_price,
+                avg_price_per_sqft=lm.avg_price_per_sqft,
+                residential_rent_2bhk=lm.residential_rent_2bhk,
+                rental_yield=lm.rental_yield,
+                risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
             ))
 
     # Fetch detailed projects
@@ -211,6 +245,7 @@ async def get_city_by_slug(slug: str) -> Any:
     # Construct complete response
     response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
     response_data.landmarks = landmarks
+    response_data.top_landmarks_to_invest = top_investment_landmarks
     response_data.top_developed_projects = resolved_projects
     response_data.upcoming_projects_list = resolved_upcoming
     

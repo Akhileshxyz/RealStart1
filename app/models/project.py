@@ -1,12 +1,10 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional
+from typing import Optional, List, Any
 from enum import Enum
 from beanie import Document, Indexed
-from typing import Optional, List
-from enum import Enum
-from beanie import Document, Indexed
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, field_validator
+from app.utils.parsers import parse_price_string
 
 class LegalDocumentStatus(str, Enum):
     PENDING = "PENDING"
@@ -64,7 +62,7 @@ class Project(Document):
     landmark_id: Optional[UUID] = None # Linked Locality
     
     name: str
-    slug: Indexed(str, unique=True)
+    slug: str = Indexed(unique=True)
     description: Optional[str] = None
     
     # Approval Details
@@ -97,6 +95,13 @@ class Project(Document):
     # Price
     min_price: Optional[float] = None
     max_price: Optional[float] = None
+
+    @field_validator('min_price', 'max_price', mode='before')
+    @classmethod
+    def parse_prices(cls, v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        return parse_price_string(v)
     
     # Other
     possession_date: Optional[datetime] = None
