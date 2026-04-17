@@ -1,9 +1,16 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, Dict, Any, List, Union
-from beanie import Document, PydanticObjectId
-from pydantic import Field, field_validator
-from app.utils.parsers import parse_price_string
+from typing import Optional, Dict, Any, List
+from beanie import Document
+from pydantic import BaseModel, Field
+
+
+class UpcomingDevelopment(BaseModel):
+    """Single upcoming development project with details."""
+    title: str
+    detail: Optional[str] = None
+
+
 
 class MarketIntelligence(Document):
     id: Union[UUID, PydanticObjectId] = Field(default_factory=uuid4)
@@ -49,7 +56,7 @@ class MarketIntelligence(Document):
     amenities: List[Any]  # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data
     
     # Upcoming Development Projects
-    upcoming_projects: List[str] = []
+    upcoming_projects: List[UpcomingDevelopment] = []
     
     # Top Investment Landmarks
     investment_landmarks: List[Any] # List[Dict[str, Any]] but Any to prevent Beanie fetch crash on legacy data

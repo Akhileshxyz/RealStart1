@@ -60,10 +60,16 @@ async def create_project(
                     project_in.latitude = float(geo_data["latitude"])
                     project_in.longitude = float(geo_data["longitude"])
         
+        # Determine initial status
+        initial_status = ProjectStatus.PENDING
+        if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            initial_status = ProjectStatus.APPROVED
+
         project = Project(
             **project_in.model_dump(),
-            status=ProjectStatus.PENDING # Enforce Pending
+            status=initial_status
         )
+
         await project.insert()
         return ProjectResponse.model_validate(project.model_dump())
     except HTTPException:
@@ -173,14 +179,23 @@ async def update_project(
         # Direct Update
         update_data = project_in.model_dump(exclude_unset=True)
         
-        if current_user.role in [UserRole.DEVELOPER, UserRole.MANAGER, UserRole.SALES, UserRole.MARKETING]:
+        # If an ADMIN or SUPER_ADMIN updates the project, auto-approve it
+        if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            update_data["status"] = ProjectStatus.APPROVED
+        elif current_user.role in [UserRole.DEVELOPER, UserRole.MANAGER, UserRole.SALES, UserRole.MARKETING]:
              if project.status == ProjectStatus.REJECTED:
                  update_data["status"] = ProjectStatus.PENDING
         
         await project.set(update_data)
         project.updated_at = datetime.utcnow()
         await project.save()
+        
+        # Invalidate cache since status might have changed
+        from app.utils.cache_invalidation import invalidate_project_cache
+        await invalidate_project_cache(project_id=project.id, slug=project.slug)
+        
         return ProjectResponse.model_validate(project.model_dump())
+
 
 @router.delete("/{project_id}", response_model=dict)
 async def delete_project(

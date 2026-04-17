@@ -32,6 +32,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def format_price_lakhs(value: float) -> str:
+    """Format price in Lakhs or Crores (base is per 1200 sqft)."""
+    if value >= 100:
+        return f"₹{value / 100:.2f} Cr"
+    return f"₹{int(value)} L"
+
+
+def format_total_price(base_price_per_1200sqft: float, sqft: int) -> str:
+    """Calculate total price for given sqft from base price per 1200 sqft."""
+    multiplier = sqft / 1200
+    total = base_price_per_1200sqft * multiplier
+    return format_price_lakhs(total)
+
+
 def lat_lng_from_landmark(landmark: Landmark) -> Tuple[Optional[float], Optional[float]]:
     """Prefer explicit latitude/longitude; else GeoJSON Point coordinates [lng, lat]."""
     if landmark.latitude is not None and landmark.longitude is not None:
@@ -111,9 +125,9 @@ def _detail_public(
 ) -> MarketIntelligenceDetailPublic:
     lat, lng = lat_lng_from_landmark(landmark)
     box = BoxContentSection(
-        avg_commercial_plot_price=float(intel.avg_commercial_plot_price),
-        avg_residential_plot_price=float(intel.avg_residential_plot_price),
-        avg_rental_2bhk=float(intel.avg_rental_2bhk),
+        avg_commercial_plot_price=str(intel.avg_commercial_plot_price),
+        avg_residential_plot_price=str(intel.avg_residential_plot_price),
+        avg_rental_2bhk=str(intel.avg_rental_2bhk),
         avg_rental_yield=getattr(intel, 'avg_rental_yield', None),
         economic_output=sanitize_str(intel.economic_output),
         population=sanitize_str(intel.population),
@@ -148,17 +162,29 @@ def _detail_public(
     )
 
 
-def _upcoming_strings_to_items(lines: List[Any]) -> List[UpcomingDevelopmentItem]:
+def _upcoming_strings_to_items(raw_data: List[Any]) -> List[UpcomingDevelopmentItem]:
+    """Convert upcoming projects to structured items. Handles both old string format and new structured format."""
     out: List[UpcomingDevelopmentItem] = []
-    for raw in lines:
-        s = sanitize_str(raw)
-        if not s:
-            continue
-        if " - " in s:
-            a, b = s.split(" - ", 1)
-            out.append(UpcomingDevelopmentItem(title=a.strip(), detail=b.strip()))
-        else:
-            out.append(UpcomingDevelopmentItem(title=s, detail=None))
+    for raw in raw_data:
+        # Handle new structured format
+        if isinstance(raw, dict):
+            out.append(UpcomingDevelopmentItem(
+                title=str(raw.get("title", "")),
+                detail=raw.get("detail"),
+                development_type=raw.get("development_type"),
+                expected_year=raw.get("expected_year"),
+                status=raw.get("status")
+            ))
+        # Handle old string format for backward compatibility
+        elif isinstance(raw, str):
+            s = sanitize_str(raw)
+            if not s:
+                continue
+            if " - " in s:
+                a, b = s.split(" - ", 1)
+                out.append(UpcomingDevelopmentItem(title=a.strip(), detail=b.strip()))
+            else:
+                out.append(UpcomingDevelopmentItem(title=s, detail=None))
     return out
 
 
@@ -199,9 +225,9 @@ async def build_market_intelligence_area_detail(
     lat, lng = lat_lng_from_landmark(landmark)
     overview = sanitize_str(intelligence.overview)
     area_box = AreaBoxContentSection(
-        avg_commercial_plot_price=float(intelligence.avg_commercial_plot_price),
-        avg_residential_plot_price=float(intelligence.avg_residential_plot_price),
-        avg_rental_2bhk=float(intelligence.avg_rental_2bhk),
+        avg_commercial_plot_price=str(intelligence.avg_commercial_plot_price),
+        avg_residential_plot_price=str(intelligence.avg_residential_plot_price),
+        avg_rental_2bhk=str(intelligence.avg_rental_2bhk),
         avg_rental_yield=getattr(intelligence, 'avg_rental_yield', None),
         appreciation_potential_5yr=sanitize_str(intelligence.appreciation_potential_5yr),
     )
@@ -574,13 +600,14 @@ async def compare_localities(
         }
 
         # Price Snapshot Logic
-        res_price = mi.avg_residential_plot_price if mi else lm.avg_plot_price
-        comm_price = mi.avg_commercial_plot_price if mi else lm.avg_plot_price * 1.5
+        res_price = str(mi.avg_residential_plot_price) if mi else str(lm.avg_plot_price)
+        comm_price = str(mi.avg_commercial_plot_price) if mi else str(lm.avg_plot_price)
         appreciation = mi.appreciation_potential_5yr if mi else "30-35%"
         
+        # Show total prices as strings
         price_snapshot = {
-            "residential_land": f"₹{int(res_price):,} - ₹{int(res_price * 1.3):,}",
-            "commercial_land": f"₹{int(comm_price):,} - ₹{int(comm_price * 1.2):,}",
+            "residential_land": res_price,
+            "commercial_land": comm_price,
             "rental_rent": lm.residential_rent_2bhk or "₹20,000 - ₹25,000",
             "appreciation_5yr": appreciation
         }

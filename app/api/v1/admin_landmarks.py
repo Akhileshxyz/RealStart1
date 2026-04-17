@@ -64,13 +64,22 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
         data["nearby_landmarks"] = []
 
     # 2. Resolve Upcoming Projects
-    if landmark.upcoming_project_ids:
-        upcoming_projs = await Project.find(In(Project.id, landmark.upcoming_project_ids)).to_list()
-        data["upcoming_projects_list"] = [
-            UpcomingProjectSummary.model_validate(p.model_dump()) for p in upcoming_projs
-        ]
-    else:
-        data["upcoming_projects_list"] = []
+    # We include projects EXPLICITLY linked in upcoming_project_ids 
+    # AND projects that point to this landmark via Project.landmark_id
+    projects_via_field = await Project.find(Project.landmark_id == landmark.id).to_list()
+    
+    manual_ids = landmark.upcoming_project_ids or []
+    existing_ids = {p.id for p in projects_via_field}
+    remaining_ids = [pid for pid in manual_ids if pid not in existing_ids]
+    
+    if remaining_ids:
+        additional_projs = await Project.find(In(Project.id, remaining_ids)).to_list()
+        projects_via_field.extend(additional_projs)
+
+    
+    data["upcoming_projects_list"] = [
+        UpcomingProjectSummary.model_validate(p.model_dump()) for p in projects_via_field
+    ]
 
     # 3. Resolve Nearby Projects
     if landmark.nearby_project_ids:
@@ -82,6 +91,7 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
         data["nearby_projects"] = []
 
     return data
+
 
 @router.get("/", response_model=PaginatedLandmarkResponse)
 async def list_all_landmarks(
@@ -178,10 +188,11 @@ async def update_landmark(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid update format: {str(e)}")
 
-    # Update fields
-    update_data = update_in.model_dump(exclude_unset=True)
+    # Update fields - include all provided values including nested arrays like price_growth
+    update_data = update_in.model_dump(exclude_unset=False)
     for k, v in update_data.items():
-        setattr(landmark, k, v)
+        if v is not None:
+            setattr(landmark, k, v)
             
     # Handle new file uploads
     if files:

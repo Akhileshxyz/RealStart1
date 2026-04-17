@@ -27,8 +27,10 @@ async def create_market_intelligence(
     
     if existing:
         # Update existing
-        update_data = intelligence_in.model_dump(exclude_unset=True)
+        update_data = intelligence_in.model_dump(exclude_unset=False)
         update_data["updated_at"] = datetime.utcnow()
+        # Filter out None values to preserve existing data
+        update_data = {k: v for k, v in update_data.items() if v is not None}
         await existing.update({"$set": update_data})
         return await MarketIntelligence.get(existing.id)
     
@@ -73,8 +75,11 @@ async def update_market_intelligence(
             detail="Market intelligence not found"
         )
     
-    update_data = intelligence_in.model_dump(exclude_unset=True)
+    update_data = intelligence_in.model_dump(exclude_unset=False)
     update_data["updated_at"] = datetime.utcnow()
+    
+    # Filter out None values to preserve existing data for unset fields
+    update_data = {k: v for k, v in update_data.items() if v is not None}
     
     await intelligence.update({"$set": update_data})
     return await MarketIntelligence.get(intelligence.id)

@@ -5,7 +5,7 @@ from enum import Enum
 import re
 from app.utils.parsers import parse_price_string
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 class RiskProfile(str, Enum):
     LOW = "low"
@@ -18,7 +18,24 @@ class GeoJSONLocation(BaseModel):
 
 class LandmarkPricePoint(BaseModel):
     year: int
-    value: float
+    value: Union[float, str] = 0
+    reason: str = ""
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def ensure_string_value(cls, v):
+        if v is None:
+            return ""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def default_reason(cls, v):
+        if v is None:
+            return ""
+        return v
 
     @field_validator('value', mode='before')
     @classmethod
@@ -27,23 +44,24 @@ class LandmarkPricePoint(BaseModel):
 
 class LandmarkPredictionPoint(BaseModel):
     year: int
-    value: Optional[Any] = None 
-    value1: float = 0 
-    value2: float = 0
-    reason: Optional[str] = None
+    value: Union[float, str] = 0
+    reason: str = ""
 
-    @field_validator('value1', 'value2', 'value', mode='before')
+    @field_validator("value", mode="before")
     @classmethod
-    def parse_values(cls, v: Any) -> float:
+    def ensure_string_value(cls, v):
         if v is None:
-            return 0.0
-        return parse_price_string(v)
+            return ""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
 
-    @model_validator(mode='after')
-    def sync_legacy_value(self) -> 'LandmarkPredictionPoint':
-        if self.value and not self.value1:
-            self.value1 = self.value
-        return self
+    @field_validator("reason", mode="before")
+    @classmethod
+    def default_reason(cls, v):
+        if v is None:
+            return ""
+        return v
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
@@ -64,9 +82,9 @@ class Landmark(Document):
     image_url: Optional[str] = None
     
     # Financial/Market Data
-    avg_plot_price: float = 0
-    avg_apartment_price: float = 0
-    avg_price_per_sqft: float = 0
+    avg_plot_price: Union[float, str] = 0
+    avg_apartment_price: Union[float, str] = 0
+    avg_price_per_sqft: Union[float, str] = 0
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE
