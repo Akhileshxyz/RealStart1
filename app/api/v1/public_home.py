@@ -5,7 +5,7 @@ Public Homepage APIs
 2. GET /api/v1/public/featured-projects → Featured Projects for homepage & Top Projects page
 3. GET /api/v1/public/blogs             → Latest / filtered Blogs for BlogSection & /blogs page
 """
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 from datetime import datetime
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
@@ -59,6 +59,12 @@ class FeaturedCityResponse(BaseModel):
     id: UUID
     name: str
     image: Optional[str] = None
+    appreciation_potential_5yr: Optional[str] = None
+    avg_appreciation_end_value: Optional[Union[float, str]] = None
+    avg_appreciation_start_value: Optional[Union[float, str]] = None
+    avg_commercial_plot_price: Optional[Union[float, str]] = None
+    avg_rental_2bhk: Optional[str] = None
+    avg_residential_plot_price: Optional[Union[float, str]] = None
 
 class FeaturedCitiesEnvelope(BaseModel):
     status: str = "success"
@@ -148,7 +154,13 @@ async def list_featured_cities(
         FeaturedCityResponse(
             id=city.id,
             name=city.name,
-            image=city.images[0] if city.images else None
+            image=city.images[0] if city.images else None,
+            appreciation_potential_5yr=city.appreciation_potential_5yr,
+            avg_appreciation_end_value=city.avg_appreciation_end_value,
+            avg_appreciation_start_value=city.avg_appreciation_start_value,
+            avg_commercial_plot_price=city.avg_commercial_plot_price,
+            avg_rental_2bhk=city.avg_rental_2bhk,
+            avg_residential_plot_price=city.avg_residential_plot_price
         )
         for city in cities
     ]
@@ -302,7 +314,7 @@ async def get_landmarks(
             lm_lon, lm_lat = landmark.location.coordinates
             
         # Fetch all projects from cache
-        projects = await get_all_projects_for_geospatial(use_cache=True)
+        projects = await get_all_projects_for_geospatial()
         
         nearby = []
         for proj in projects:
@@ -372,29 +384,11 @@ async def get_landmarks(
         landmark_response = LandmarkResponse.model_validate(data)
         return landmark_response
 
-    else:
-        # LIST VIEW
-        # Try cache first
-        if city:
-            cache_key = redis_client.make_key("public", "landmarks", "city", city, "summary")
-        else:
-            cache_key = redis_client.make_key("public", "landmarks", "all", "summary")
-
-        cached = await redis_client.get(cache_key)
-        if cached:
-            return [LandmarkSummary(**l) for l in cached]
-
-        # Cache miss - query database with projection
+        # DB query always (Cache removed)
         if city:
             landmarks = await Landmark.find(Landmark.city == city).project(LandmarkSummary).to_list()
         else:
             landmarks = await Landmark.find_all().project(LandmarkSummary).to_list()
-
-        # Cache results
-        if landmarks:
-            landmarks_dict = [l.model_dump() for l in landmarks]
-            ttl = getattr(settings, 'REDIS_CACHE_TTL_LANDMARKS', 21600)
-            await redis_client.set(cache_key, landmarks_dict, ttl)
 
         return landmarks
 

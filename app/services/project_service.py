@@ -18,186 +18,117 @@ logger = logging.getLogger(__name__)
 
 async def get_project_by_slug(
     slug: str,
-    status: Optional[ProjectStatus] = None,
-    use_cache: bool = True
+    status: Optional[ProjectStatus] = None
 ) -> Optional[Project]:
     """
-    Get project by slug with caching.
-
-    This function is used across multiple endpoints and consolidates
-    the lookup logic with caching to avoid repeated database queries.
+    Get project by slug from database.
 
     Args:
         slug: Project slug
         status: Optional status filter (e.g., APPROVED for public endpoints)
-        use_cache: Whether to use caching (default: True)
 
     Returns:
         Project object or None if not found
     """
-    # Build cache key with status if provided
-    cache_key = redis_client.make_key("project", "slug", slug)
-    if status:
-        cache_key = f"{cache_key}:{status.value}"
-
-    # Try cache first if enabled
-    if use_cache:
-        cached_project = await redis_client.get(cache_key)
-        if cached_project:
-            logger.debug(f"Project cache HIT for slug: {slug}")
-            return Project(**cached_project)
-
-    # Cache miss - query database
-    logger.debug(f"Project cache MISS for slug: {slug}")
+    logger.debug(f"Fetching project by slug: {slug}")
 
     if status:
         # If filtering by APPROVED (Public), also enforce is_hidden=False
         if status == ProjectStatus.APPROVED:
+            from beanie.operators import Or
             project = await Project.find_one(
                 Project.slug == slug, 
                 Project.status == status,
-                Project.is_hidden == False
+                Or(Project.is_hidden == False, Project.is_hidden == None)
             )
         else:
             project = await Project.find_one(Project.slug == slug, Project.status == status)
     else:
         project = await Project.find_one(Project.slug == slug)
 
-    # Cache the result if found
-    if project and use_cache:
-        project_dict = project.model_dump()
-        # Cache for 2-4 hours as per plan
-        ttl = settings.REDIS_CACHE_TTL_PUBLIC
-        await redis_client.set(cache_key, project_dict, ttl)
-        logger.debug(f"Cached project slug: {slug} with TTL: {ttl}s")
-
     return project
 
 
-async def get_project_by_id(
-    project_id: UUID,
-    use_cache: bool = True
-) -> Optional[Project]:
+async def get_project_by_id(project_id: UUID) -> Optional[Project]:
     """
-    Get project by ID with caching.
+    Get project by ID from database.
 
     Args:
         project_id: Project UUID
-        use_cache: Whether to use caching (default: True)
 
     Returns:
         Project object or None if not found
     """
-    cache_key = redis_client.make_key("project", "id", str(project_id))
-
-    # Try cache first if enabled
-    if use_cache:
-        cached_project = await redis_client.get(cache_key)
-        if cached_project:
-            logger.debug(f"Project cache HIT for ID: {project_id}")
-            return Project(**cached_project)
-
-    # Cache miss - query database
-    logger.debug(f"Project cache MISS for ID: {project_id}")
-    project = await Project.get(project_id)
-
-    # Cache the result if found
-    if project and use_cache:
-        project_dict = project.model_dump()
-        ttl = settings.REDIS_CACHE_TTL_PUBLIC
-        await redis_client.set(cache_key, project_dict, ttl)
-
-    return project
+    logger.debug(f"Fetching project by ID: {project_id}")
+    return await Project.get(project_id)
 
 
 async def get_approved_projects(
     skip: int = 0,
     limit: int = 20,
-    landmark_id: Optional[UUID] = None,
-    use_cache: bool = True
+    city_id: Optional[UUID] = None
 ):
     """
-    Get paginated list of approved projects with caching.
-
-    Args:
-        skip: Number of records to skip
-        limit: Number of records to return
-        use_cache: Whether to use caching (default: True)
+    Get paginated list of approved projects.
 
     Returns:
-        List of approved Project objects
+        tuple: (List of approved Project objects, total count)
     """
-    cache_key = redis_client.make_key("public", "projects", "approved", str(skip), str(limit))
-    if landmark_id:
-        cache_key = f"{cache_key}:landmark:{landmark_id}"
-
-    # Try cache first if enabled
-    if use_cache:
-        cached_projects = await redis_client.get(cache_key)
-        if cached_projects:
-            logger.debug(f"Approved projects cache HIT (skip={skip}, limit={limit})")
-            return [Project(**p) for p in cached_projects]
-
-    # Cache miss - query database
-    logger.debug(f"Approved projects cache MISS (skip={skip}, limit={limit}, landmark={landmark_id})")
-    
-    query_filters = [
+    # Build base criteria for public projects - handle missing fields as well
+    from beanie.operators import Or
+    criteria = [
         Project.status == ProjectStatus.APPROVED,
-        Project.is_hidden == False
+        Or(Project.is_hidden == False, Project.is_hidden == None),
+        Or(Project.is_active == True, Project.is_active == None)
     ]
-    if landmark_id:
-        query_filters.append(Project.landmark_id == landmark_id)
-        
-    projects = await Project.find(*query_filters).skip(skip).limit(limit).to_list()
+    
+    if city_id:
+        from app.models.city import City
+        city = await City.get(city_id)
+        if city:
+            # Aggregate project IDs from city lists
+            raw_ids = []
+            if city.top_developed_projects: raw_ids.extend(city.top_developed_projects)
+            if city.upcoming_projects_list: raw_ids.extend(city.upcoming_projects_list)
+            
+            # Convert to pure UUID objects for standard subtype (0x04) matching
+            project_uuids = []
+            for item in raw_ids:
+                try:
+                    if isinstance(item, UUID): project_uuids.append(item)
+                    elif isinstance(item, str): project_uuids.append(UUID(item))
+                    else: project_uuids.append(UUID(str(item)))
+                except (ValueError, TypeError): continue
+            
+            # Remove duplicates
+            project_uuids = list(set(project_uuids))
+            
+            logger.debug(f"City: {city.name}, total linked projects: {len(project_uuids)}")
+            if project_uuids:
+                from beanie.operators import In
+                criteria.append(In(Project.id, project_uuids))
+            else:
+                return [], 0
+        else:
+            logger.warning(f"City NOT found for ID: {city_id}")
+            return [], 0
+            
+    # Execute query using Beanie DSL
+    projects = await Project.find(*criteria).sort("-created_at").skip(skip).limit(limit).to_list()
+    total = await Project.find(*criteria).count()
+    
+    logger.debug(f"Public API: Found {len(projects)} projects (Total: {total}) for city: {city_id}")
 
-    # Cache the results
-    if projects and use_cache:
-        projects_dict = [p.model_dump() for p in projects]
-        ttl = settings.REDIS_CACHE_TTL_PUBLIC  # 1 hour for public project lists
-        await redis_client.set(cache_key, projects_dict, ttl)
-        logger.debug(f"Cached approved projects list (skip={skip}, limit={limit})")
-
-    return projects
+    return projects, total
 
 
-async def get_all_projects_for_geospatial(use_cache: bool = True):
+async def get_all_projects_for_geospatial():
     """
     Get all projects for geospatial calculations (landmarks nearby).
-
-    This query fetches all projects and is expensive. Caching is critical.
-
-    Args:
-        use_cache: Whether to use caching (default: True)
-
-    Returns:
-        List of all Project objects with coordinates
     """
-    cache_key = redis_client.make_key("projects", "geospatial", "all")
-
-    # Try cache first if enabled
-    if use_cache:
-        cached_projects = await redis_client.get(cache_key)
-        if cached_projects:
-            try:
-                logger.debug("Geospatial projects cache HIT")
-                return [Project(**p) for p in cached_projects]
-            except Exception as e:
-                logger.warning(f"Failed to deserialize project cache: {e}. Falling back to DB.")
-                # Fallthrough to DB query
-
-
-    # Cache miss - query database (expensive)
-    logger.debug("Geospatial projects cache MISS - fetching all projects")
+    # Simply query all projects directly (Cache removed)
+    logger.debug("Fetching all projects for geospatial calculations")
     projects = await Project.find_all().to_list()
-
-    # Cache the results
-    if projects and use_cache:
-        # Only cache necessary fields for geospatial calculations
-        projects_dict = [p.model_dump() for p in projects]
-        ttl = 3600  # 1 hour TTL for geospatial data
-        await redis_client.set(cache_key, projects_dict, ttl)
-        logger.debug(f"Cached {len(projects)} projects for geospatial calculations")
-
     return projects
 
 

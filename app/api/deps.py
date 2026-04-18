@@ -5,7 +5,7 @@ import jwt
 from pydantic import ValidationError
 from app.core import security
 from app.core.config import settings
-from app.core.redis_client import redis_client
+from app.core.config import settings
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenPayload
 
@@ -16,14 +16,6 @@ optional_security_scheme = HTTPBearer(auto_error=False)
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> User:
     token = credentials.credentials
     
-    # Check if token is blacklisted
-    is_blacklisted = await redis_client.exists(f"blacklist:token:{token}")
-    if is_blacklisted:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has been invalidated (logged out)",
-        )
-
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -35,20 +27,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Could not validate credentials",
         )
 
-    # TIER 1 CRITICAL CACHING: Try to get user from cache first
-    cache_key = redis_client.make_key("user", "id", str(token_data.sub))
-    cached_user = await redis_client.get(cache_key)
-
-    if cached_user:
-        # Reconstruct User object from cached data
-        user = User(**cached_user)
-    else:
-        # Cache miss - fetch from database
-        user = await User.get(token_data.sub)
-        if user:
-            # Cache user object for future requests
-            user_dict = user.model_dump()
-            await redis_client.set(cache_key, user_dict, settings.REDIS_CACHE_TTL_USER)
+    # Fetch from database (Cache removed)
+    user = await User.get(token_data.sub)
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

@@ -234,3 +234,19 @@ class PublicProjectDetailResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class PublicProjectCard(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    description: Optional[str] = None
+    location_name: Optional[str] = None
+    price_display: Optional[str] = None
+    price_value: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    is_liked: bool = False
+
+class PublicProjectPagination(BaseModel):
+    total: int
+    data: List[PublicProjectCard]
+    skip: int
+    limit: int

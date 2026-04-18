@@ -21,7 +21,9 @@ from app.schemas.project import (
     LocationAdvantage,
     ProjectAgent,
     ProjectDocumentDetail,
-    ProjectDocuments
+    ProjectDocuments,
+    PublicProjectCard,
+    PublicProjectPagination
 )
 from app.services.project_service import get_approved_projects, get_project_by_slug, get_project_by_id
 from app.schemas.visit import ProjectAvailabilityResponse, DateAvailability, TimeSlot
@@ -30,22 +32,52 @@ from app.models.lead import ProjectLead
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
-@router.get("/", response_model=List[ProjectResponse])
+@router.get("/", response_model=PublicProjectPagination)
 @limiter.limit("60/minute")
 async def list_public_projects(
     request: Request,
-    skip: int = 0,
-    limit: int = 20,
-    landmark_id: Optional[UUID] = None
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    city_id: Optional[UUID] = None,
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ) -> Any:
     """
-    List all APPROVED projects visible to public.
-    Support filtering by landmark_id (locality).
-    TIER 1 CACHING: Results cached for 1 hour.
-    RATE LIMIT: 60 requests per minute.
+    List all APPROVED and ACTIVE projects visible to public.
+    Support filtering by city_id.
+    Includes is_liked status if user is authenticated.
     """
-    projects = await get_approved_projects(skip=skip, limit=limit, landmark_id=landmark_id, use_cache=True)
-    return projects
+    projects, total = await get_approved_projects(skip=skip, limit=limit, city_id=city_id)
+    
+    project_cards = []
+    for p in projects:
+        # Check wishlist if logged in
+        is_liked = False
+        if current_user:
+            lead = await ProjectLead.find_one(
+                ProjectLead.user_id == current_user.id,
+                ProjectLead.project_id == p.id,
+                ProjectLead.is_wishlisted == True
+            )
+            is_liked = bool(lead)
+            
+        project_cards.append(PublicProjectCard(
+            id=p.id,
+            name=p.name,
+            slug=p.slug,
+            description=p.description,
+            location_name=p.city,
+            price_display=f"₹{int(p.min_price):,}/sqft" if p.min_price else "Price on Request",
+            price_value=int(p.min_price) if p.min_price else None,
+            thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
+            is_liked=is_liked
+        ))
+
+    return {
+        "total": total,
+        "data": project_cards,
+        "skip": skip,
+        "limit": limit
+    }
 
 async def _map_project_to_public_detail(project: Project) -> PublicProjectDetailResponse:
     # 1. Basic Info
@@ -202,13 +234,13 @@ async def get_public_project(
     project = None
     try:
         project_uuid = UUID(slug_or_id)
-        project = await get_project_by_id(project_uuid, use_cache=True)
+        project = await get_project_by_id(project_uuid)
         # Verify status since public API only shows APPROVED/UNHIDDEN
         if project and (project.status != ProjectStatus.APPROVED or project.is_hidden):
             project = None
     except (ValueError, AttributeError):
         # Not a valid UUID, try as slug
-        project = await get_project_by_slug(slug=slug_or_id, status=ProjectStatus.APPROVED, use_cache=True)
+        project = await get_project_by_slug(slug=slug_or_id, status=ProjectStatus.APPROVED)
 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

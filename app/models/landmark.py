@@ -37,10 +37,6 @@ class LandmarkPricePoint(BaseModel):
             return ""
         return v
 
-    @field_validator('value', mode='before')
-    @classmethod
-    def parse_value(cls, v: Any) -> float:
-        return parse_price_string(v)
 
 class LandmarkPredictionPoint(BaseModel):
     year: int
@@ -89,10 +85,6 @@ class Landmark(Document):
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE
 
-    @field_validator('avg_plot_price', 'avg_apartment_price', 'avg_price_per_sqft', mode='before')
-    @classmethod
-    def parse_financials(cls, v: Any) -> float:
-        return parse_price_string(v)
     
     price_trend: Optional[str] = None  # "rising", "stable", "falling"
     price_trend_3m: Optional[str] = None # e.g. "+5.2%"
@@ -121,4 +113,18 @@ class Landmark(Document):
             [("location", "2dsphere")],
             "city_id",
             "name"
+        ]
+
+class LandmarkSave(Document):
+    id: UUID = Field(default_factory=uuid4)
+    landmark_id: UUID
+    user_id: UUID
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "landmarks_saves"
+        indexes = [
+            "landmark_id",
+            "user_id",
+            [("landmark_id", 1), ("user_id", 1)]  # Unique per user-landmark pair
         ]

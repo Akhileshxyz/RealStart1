@@ -1,8 +1,10 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, Dict, Any, List
-from beanie import Document
-from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List, Union
+from beanie import Document, PydanticObjectId
+from pydantic import BaseModel, Field, field_validator
+from app.utils.parsers import parse_price_string
+
 
 
 class UpcomingDevelopment(BaseModel):

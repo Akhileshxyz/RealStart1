@@ -7,7 +7,6 @@ from typing import Dict, Any
 from uuid import UUID
 from datetime import datetime, timezone
 from app.models.webhook import WebhookSubscription
-from app.core.redis_client import redis_client
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -88,23 +87,11 @@ class WebhookService:
             data: Event data payload
             developer_id: Developer ID to send webhook to
         """
-        # Try cache first (TIER 1 CACHING: Webhook subscriptions)
-        cache_key = redis_client.make_key("webhooks", "dev", str(developer_id), "active")
-        cached_webhooks = await redis_client.get(cache_key)
-
-        if cached_webhooks:
-            webhooks = [WebhookSubscription(**w) for w in cached_webhooks]
-        else:
-            # Cache miss - query database
-            webhooks = await WebhookSubscription.find(
-                WebhookSubscription.developer_id == developer_id,
-                WebhookSubscription.is_active == True
-            ).to_list()
-
-            # Cache for 30 minutes
-            if webhooks:
-                webhooks_dict = [w.model_dump() for w in webhooks]
-                await redis_client.set(cache_key, webhooks_dict, 1800)
+        # Fetch active webhooks from database (Cache removed)
+        webhooks = await WebhookSubscription.find(
+            WebhookSubscription.developer_id == developer_id,
+            WebhookSubscription.is_active == True
+        ).to_list()
 
         # Filter webhooks that subscribe to this event type
         subscribed_webhooks = [

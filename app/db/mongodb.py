@@ -8,7 +8,7 @@ from app.models.project import Project
 from app.models.lead import ProjectLead
 from app.models.webhook import WebhookSubscription
 from app.models.change_request import ProjectChangeRequest
-from app.models.landmark import Landmark
+from app.models.landmark import Landmark, LandmarkSave
 from app.models.visit import VisitBooking
 from app.models.ad import Ad
 from app.models.video import Video
@@ -31,7 +31,7 @@ from app.models.city import City
 
 
 async def init_db():
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    client = AsyncIOMotorClient(settings.MONGODB_URL, uuidRepresentation="standard")
 
     # Initialize Beanie with all document models
     await init_beanie(
@@ -72,6 +72,7 @@ async def init_db():
             ReelComment,
             ReelSave,
             City,
+            LandmarkSave,
         ]
 
     )

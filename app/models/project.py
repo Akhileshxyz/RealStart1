@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 from enum import Enum
 from beanie import Document, Indexed
 from pydantic import Field, BaseModel, field_validator
@@ -93,15 +93,8 @@ class Project(Document):
     sold_units: Optional[int] = None
     
     # Price
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
-
-    @field_validator('min_price', 'max_price', mode='before')
-    @classmethod
-    def parse_prices(cls, v: Any) -> Optional[float]:
-        if v is None:
-            return None
-        return parse_price_string(v)
+    min_price: Optional[Union[float, str]] = None
+    max_price: Optional[Union[float, str]] = None
     
     # Other
     possession_date: Optional[datetime] = None

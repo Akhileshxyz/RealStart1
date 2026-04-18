@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # Redis (for caching and rate limiting)
     REDIS_URL: str = "redis://localhost:6379/0"
-    ENABLE_REDIS_CACHE: bool = True
+    ENABLE_REDIS_CACHE: bool = False
     REDIS_CACHE_TTL_DEFAULT: int = 300  # 5 minutes
     REDIS_CACHE_TTL_USER: int = 600  # 10 minutes
     REDIS_CACHE_TTL_PUBLIC: int = 3600  # 1 hour

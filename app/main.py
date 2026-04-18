@@ -8,7 +8,6 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.db.mongodb import init_db
-from app.core.redis_client import redis_client
 from app.api.v1 import (
     public_auth,
     admin_auth,
@@ -54,7 +53,8 @@ from app.api.v1 import (
     user_reels,
     admin_cities,
     public_blogs,
-    public_landmarks
+    public_landmarks,
+    public_search
 )
 
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
@@ -81,18 +81,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized successfully")
 
-    # Initialize Redis
-    await redis_client.initialize()
-    if redis_client.is_available:
-        logger.info("Redis cache initialized successfully")
-    else:
-        logger.warning("Redis cache not available - continuing without caching")
 
     yield
 
-    # Shutdown
-    logger.info("Shutting down RealStart application...")
-    await redis_client.close()
 
 # Define Tags Metadata for ordering
 tags_metadata = [
@@ -147,7 +138,7 @@ app = FastAPI(
 )
 
 # Rate Limiting Setup
-limiter = Limiter(key_func=get_remote_address, storage_uri=settings.REDIS_URL)
+limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -179,6 +170,7 @@ app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public
 app.include_router(public_blogs.router, prefix=f"{settings.API_V1_STR}/public/blogs", tags=["Public Blogs"])
 app.include_router(public_landmarks.router, prefix=f"{settings.API_V1_STR}/public/landmarks", tags=["Public - Landmarks"])
 app.include_router(public_home.router, prefix=f"{settings.API_V1_STR}/public", tags=["Public - Home"])
+app.include_router(public_search.router, prefix=f"{settings.API_V1_STR}/public/search", tags=["Public - Search"])
 app.include_router(user_portal.router, prefix=f"{settings.API_V1_STR}")
 app.include_router(user_interactions.router, prefix=f"{settings.API_V1_STR}/users/interactions", tags=["User - Interactions"])
 app.include_router(user_notifications.router, prefix=f"{settings.API_V1_STR}", tags=["User - Notifications"])

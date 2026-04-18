@@ -16,8 +16,6 @@ from app.schemas.lead import LeadResponse
 from app.core.config import settings
 from app.schemas.landmark import LandmarkResponse, LandmarkCreate, LandmarkSummary
 from app.schemas.visit import VisitBookingResponse, VisitBookingCreate
-from app.services.project_service import get_all_projects_for_geospatial
-from app.core.redis_client import redis_client
 from app.core.config import settings
 from datetime import datetime
 from beanie.operators import In
@@ -145,23 +143,10 @@ async def get_wishlist(
 ):
     """
     Get projects wishlisted by the user.
-    TIER 2 CACHING: Cached for 30 minutes.
     """
-    # Try cache first
-    cache_key = redis_client.make_key("user", str(current_user.id), "wishlist", "projects")
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return [Project(**p) for p in cached]
-
-    # Cache miss - fetch from database
     leads = await ProjectLead.find(ProjectLead.user_id == current_user.id, ProjectLead.is_wishlisted == True).to_list()
     project_ids = [lead.project_id for lead in leads]
     projects = await Project.find(In(Project.id, project_ids)).to_list()
-
-    # Cache for 30 minutes
-    if projects:
-        projects_dict = [p.model_dump() for p in projects]
-        await redis_client.set(cache_key, projects_dict, 1800)  # 30 minutes
 
     return projects
 

@@ -1,16 +1,20 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api import deps
 from app.models.user import User
 from app.models.lead import ProjectLead
 from app.models.project import Project
+from app.models.landmark import Landmark, LandmarkSave
+from app.models.reel import Reel, ReelSave
 from app.schemas.wishlist import (
     WishlistToggleRequest, 
     WishlistToggleResponse, 
-    WishlistResponse, 
-    WishlistItem
+    CombinedWishlistResponse,
+    ProjectWishlistItem,
+    ReelWishlistItem
 )
+from app.utils.media import public_image_url
 
 router = APIRouter()
 
@@ -20,9 +24,41 @@ async def toggle_wishlist_item(
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """
-    Toggle a property/project in the user's wishlist.
+    Toggle a property/project or landmark in the user's wishlist.
     """
-    # Verify the project exists
+    if payload.type == "landmark":
+        # Toggle Landmark
+        landmark = await Landmark.get(payload.property_id)
+        if not landmark:
+            raise HTTPException(status_code=404, detail="Landmark not found")
+        
+        existing = await LandmarkSave.find_one(
+            LandmarkSave.landmark_id == payload.property_id,
+            LandmarkSave.user_id == current_user.id
+        )
+        
+        if existing:
+            await existing.delete()
+            action = "removed"
+            message = "Landmark removed from wishlist"
+        else:
+            new_save = LandmarkSave(
+                landmark_id=payload.property_id,
+                user_id=current_user.id
+            )
+            await new_save.insert()
+            action = "added"
+            message = "Landmark added to wishlist"
+            
+        count = await LandmarkSave.find(LandmarkSave.user_id == current_user.id).count()
+        return {
+            "status": "success",
+            "message": message,
+            "action": action,
+            "count": count
+        }
+    
+    # Default to Project
     project = await Project.get(payload.property_id)
     if not project:
         raise HTTPException(
@@ -73,47 +109,52 @@ async def toggle_wishlist_item(
         "count": count
     }
 
-@router.get("/", response_model=WishlistResponse)
+@router.get("/", response_model=CombinedWishlistResponse)
 async def list_wishlist_items(
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """
-    List all projects in the user's wishlist with basic project data.
+    List all reels and projects in the user's wishlist.
     """
-    skip = (page - 1) * size
-    
-    # Fetch wishlisted leads
+    # 1. Fetch Saved Projects (ProjectLead)
     leads = await ProjectLead.find(
         ProjectLead.user_id == current_user.id,
         ProjectLead.is_wishlisted == True
-    ).sort(-ProjectLead.wishlisted_at).skip(skip).limit(size).to_list()
-
-    wishlist_data = []
+    ).sort("-wishlisted_at").to_list()
+    
+    projects_data = []
     for lead in leads:
-        project = await Project.get(lead.project_id)
-        if project:
-            # Map project data to WishlistItem
-            price_sqft = None
-            if project.min_price and project.total_area_sqft and project.total_area_sqft > 0:
-                price_sqft = project.min_price / project.total_area_sqft
-            
-            image_url = project.gallery_images[0] if project.gallery_images else None
-            
-            wishlist_data.append(WishlistItem(
-                id=project.id,
-                name=project.name,
-                location=project.city,
-                distance="1.4 km", # Placeholder as per request
-                price_sqft=price_sqft,
-                image_url=image_url,
-                added_at=lead.wishlisted_at or lead.created_at
+        p = await Project.get(lead.project_id)
+        if p:
+            projects_data.append(ProjectWishlistItem(
+                uuid=p.id,
+                name=p.name,
+                image=public_image_url(p.gallery_images[0] if p.gallery_images else None),
+                slug=p.slug,
+                description=p.description,
+                is_liked=True
+            ))
+
+    # 2. Fetch Saved Reels
+    reel_saves = await ReelSave.find(
+        ReelSave.user_id == current_user.id
+    ).sort("-created_at").to_list()
+    
+    reels_data = []
+    for save in reel_saves:
+        reel = await Reel.get(save.reel_id)
+        if reel:
+            reels_data.append(ReelWishlistItem(
+                uuid=reel.id,
+                title=reel.title,
+                video_url=reel.video_url,
+                thumbnail=None, # Reel model has no thumbnail yet
+                is_liked=True
             ))
 
     return {
-        "status": "success",
-        "data": wishlist_data
+        "reels": reels_data,
+        "projects": projects_data
     }
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -121,11 +162,18 @@ async def clear_wishlist(
     current_user: User = Depends(deps.get_current_user)
 ) -> None:
     """
-    Clear all items from the user's wishlist.
+    Clear all items from the user's wishlist (Projects, Landmarks, and Reels).
     """
+    # Clear Projects
     await ProjectLead.find(
         ProjectLead.user_id == current_user.id,
         ProjectLead.is_wishlisted == True
     ).update({"$set": {"is_wishlisted": False, "wishlisted_at": None}})
+    
+    # Clear Landmarks
+    await LandmarkSave.find(LandmarkSave.user_id == current_user.id).delete()
+    
+    # Clear Reels
+    await ReelSave.find(ReelSave.user_id == current_user.id).delete()
     
     return None

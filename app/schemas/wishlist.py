@@ -13,15 +13,21 @@ class WishlistToggleResponse(BaseModel):
     action: str  # "added" or "removed"
     count: int
 
-class WishlistItem(BaseModel):
-    id: UUID
+class ProjectWishlistItem(BaseModel):
+    uuid: UUID
     name: str
-    location: Optional[str] = None
-    distance: Optional[str] = "1.4 km" # Placeholder as per user's example
-    price_sqft: Optional[float] = None
-    image_url: Optional[str] = None
-    added_at: datetime
+    image: Optional[str] = None
+    slug: str
+    description: Optional[str] = None
+    is_liked: bool = True
 
-class WishlistResponse(BaseModel):
-    status: str = "success"
-    data: List[WishlistItem]
+class ReelWishlistItem(BaseModel):
+    uuid: UUID
+    title: str
+    video_url: str
+    thumbnail: Optional[str] = None
+    is_liked: bool = True
+
+class CombinedWishlistResponse(BaseModel):
+    reels: List[ReelWishlistItem]
+    projects: List[ProjectWishlistItem]
