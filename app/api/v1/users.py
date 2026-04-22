@@ -1,4 +1,5 @@
 from typing import Any, List
+from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from app.api import deps
@@ -147,13 +148,16 @@ async def delete_user(
                 detail="Only super admins can delete admin users"
             )
 
-    await user.delete()
+    user.is_deleted = True
+    user.is_active = False
+    user.deleted_at = datetime.utcnow()
+    await user.save()
 
     # Invalidate user cache
     await invalidate_user_cache(user.id)
 
-    logger.info(f"User {user.email} (ID: {user.id}) deleted by {current_user.email}")
-    security_logger.info(f"User deletion: {user.email} by {current_user.email}")
+    logger.info(f"User {user.email} (ID: {user.id}) soft-deleted by {current_user.email}")
+    security_logger.info(f"User soft-deletion: {user.email} by {current_user.email}")
     return user
 
 @router.patch("/{user_id}/suspend", response_model=UserResponse)

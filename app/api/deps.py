@@ -32,8 +32,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    if not user.is_active or user.is_deleted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User account is inactive or deleted")
     return user
 
 async def get_current_active_superuser(

@@ -41,6 +41,7 @@ class UserProfileResponse(BaseModel):
     region: Optional[str]
     role: str
 
+@router.post("/users/me", response_model=UserProfileResponse, tags=["User - Profile"])
 @router.patch("/users/me", response_model=UserProfileResponse, tags=["User - Profile"])
 async def update_user_profile(
     current_user: User = Depends(deps.get_current_user),

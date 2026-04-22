@@ -13,6 +13,8 @@ from app.core.redis_client import redis_client
 from fastapi.security import HTTPAuthorizationCredentials
 from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse, Message
 from app.schemas.developer import DeveloperCreate, DeveloperResponse
+from datetime import datetime
+from app.utils.cache_invalidation import invalidate_user_cache
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -26,8 +28,13 @@ async def register_public_user(user_in: UserCreate) -> Any:
     """
     user = await User.find_one({"email": user_in.email})
     if user:
+        if user.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account exists but has been deleted. Please contact support to reactivate."
+            )
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="The user with this email already exists in the system",
         )
 
@@ -54,6 +61,12 @@ async def login_access_token(
 
 
     user = await User.find_one({"email": form_data.username})
+
+    if user and user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deleted. Please contact support to reactivate."
+        )
 
     # Generic error message to prevent user enumeration
     if not user or not security.verify_password(form_data.password, user.hashed_password) or not user.is_active:
@@ -126,4 +139,22 @@ async def logout_public_user(
     await redis_client.set(f"blacklist:token:{token_str}", "true", ttl=60*60*24*7)
     
     return {"message": "Successfully logged out"}
+
+@router.delete("/me", response_model=Message)
+async def delete_current_user(
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Soft delete the current user.
+    """
+    
+    current_user.is_deleted = True
+    current_user.is_active = False
+    current_user.deleted_at = datetime.utcnow()
+    await current_user.save()
+    
+    # Invalidate cache if needed
+    await invalidate_user_cache(current_user.id)
+    
+    return {"message": "Your account has been successfully deleted (soft delete)"}
     

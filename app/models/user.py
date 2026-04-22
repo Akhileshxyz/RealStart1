@@ -29,6 +29,8 @@ class User(Document):
     phone: Optional[str] = None
     role: UserRole = UserRole.BUYER
     is_active: bool = True
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Optional Profile Fields can be added here or in separate collections

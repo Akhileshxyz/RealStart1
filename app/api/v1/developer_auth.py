@@ -33,6 +33,12 @@ async def login_developer(
     """
     user = await User.find_one({"email": username})
 
+    if user and user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deleted. Please contact support to reactivate."
+        )
+
     if not user or not security.verify_password(password, user.hashed_password) or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
