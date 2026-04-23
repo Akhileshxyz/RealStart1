@@ -99,7 +99,7 @@ class CityBase(BaseModel):
     # Extra
     landmarks_id_list: List[UUID] = []
     top_landmarks_to_invest: List[UUID] = []
-    upcoming_projects_list: List[UUID] = []
+    upcoming_projects_list: List[str] = []
     
     # Market Intelligence Text Lists
     amenities: List[str] = []
@@ -155,7 +155,7 @@ class CityPublicDetailsResponse(CityBase):
     landmarks: List[LandmarkRichResponse] = []
     top_landmarks_to_invest: List[Any] = []
     top_developed_projects: List[Any] = [] # Resolved project objects
-    upcoming_projects_list: List[Any] = [] # Resolved upcoming projects
+    upcoming_projects_list: List[str] = [] # Manual upcoming projects list
     
     # Intelligence Data (Merged from MarketIntelligence)
     investment_landmarks: List[Any] = []

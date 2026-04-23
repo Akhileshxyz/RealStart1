@@ -68,7 +68,7 @@ class City(Document):
     # System fields
     landmarks_id_list: List[UUID] = [] 
     top_landmarks_to_invest: List[UUID] = []
-    upcoming_projects_list: List[UUID] = [] # Resolved projects (links)
+    upcoming_projects_list: List[str] = [] # Manual string list
     
     # Market Intelligence Text Lists
     amenities: List[str] = []

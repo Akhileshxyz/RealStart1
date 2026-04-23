@@ -254,20 +254,8 @@ async def get_city_by_slug(slug: str) -> Any:
                 thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
             ))
 
-    # Fetch upcoming projects
-    resolved_upcoming = []
-    if city.upcoming_projects_list:
-        db_upcoming = await Project.find(In(Project.id, city.upcoming_projects_list)).to_list()
-        for p in db_upcoming:
-            resolved_upcoming.append(FeaturedProjectCard(
-                id=p.id,
-                name=p.name,
-                slug=p.slug,
-                location_name=p.city,
-                price_display=_format_price(p.min_price),
-                price_value=int(p.min_price) if p.min_price else None,
-                thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
-            ))
+    # Fetch upcoming projects (now a simple list of strings)
+    resolved_upcoming = city.upcoming_projects_list or []
 
     # Construct complete response
     response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
