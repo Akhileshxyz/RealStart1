@@ -28,6 +28,7 @@ from app.models.notification import Notification
 from app.models.blog import Blog
 from app.models.reel import Reel, ReelLike, ReelComment, ReelSave
 from app.models.city import City
+from app.models.hero_banner import HeroBanner
 
 
 async def init_db():
@@ -73,6 +74,7 @@ async def init_db():
             ReelSave,
             City,
             LandmarkSave,
+            HeroBanner,
         ]
 
     )

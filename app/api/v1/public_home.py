@@ -15,6 +15,7 @@ from app.models.project import Project, ProjectStatus
 from app.models.blog import Blog
 from app.models.city import City
 from app.models.landmark import Landmark
+from app.models.hero_banner import HeroBanner
 from beanie.operators import In
 from app.schemas.city import (
     CityResponse, 
@@ -36,6 +37,7 @@ from app.schemas.landmark_compare import (
 from app.models.market_intelligence import MarketIntelligence
 from app.core.redis_client import redis_client
 from app.core.config import settings
+from app.schemas.hero_banner import PublicHeroBannerResponse
 from app.services.project_service import get_all_projects_for_geospatial
 import logging
 import math
@@ -130,6 +132,33 @@ def calculate_distance(lat1, lon1, lat2, lon2):
          math.sin(dlon / 2) * math.sin(dlon / 2))
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
+# ---------------------------------------------------------------------------
+# 0. Hero Banners  →  GET /api/v1/public/hero-banners
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/hero-banners",
+    response_model=List[PublicHeroBannerResponse],
+    tags=["Public - Home"],
+    summary="Get active hero banners for homepage",
+)
+async def list_hero_banners() -> Any:
+    """
+    Returns active hero banners sorted by order.
+    """
+    banners = await HeroBanner.find(HeroBanner.is_active == True).sort(HeroBanner.order).to_list()
+    
+    # Prefix URLs if needed, but the model stores relative paths
+    return [
+        PublicHeroBannerResponse(
+            image=banner.image_url,
+            mobile_image=banner.mobile_image_url,
+            link=banner.link_url,
+            title=banner.title
+        )
+        for banner in banners
+    ]
 
 # ---------------------------------------------------------------------------
 # 1. Featured Cities  →  GET /api/v1/public/featured-cities

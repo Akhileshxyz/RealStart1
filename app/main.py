@@ -54,7 +54,8 @@ from app.api.v1 import (
     admin_cities,
     public_blogs,
     public_landmarks,
-    public_search
+    public_search,
+    admin_hero_banners
 )
 
 from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
@@ -203,6 +204,7 @@ app.include_router(admin_blogs.router, prefix=f"{settings.API_V1_STR}/admin/blog
 app.include_router(admin_reels.router, prefix=f"{settings.API_V1_STR}/admin/reels", tags=["Admin - Reels"])
 app.include_router(admin_market_intelligence.router, prefix=f"{settings.API_V1_STR}/admin/market-intelligence", tags=["Admin - Market Intelligence"])
 app.include_router(admin_cities.router, prefix=f"{settings.API_V1_STR}/admin/cities", tags=["Admin - Cities"])
+app.include_router(admin_hero_banners.router, prefix=f"{settings.API_V1_STR}/admin/hero-banners", tags=["Admin - Hero Banners"])
 
 app.include_router(locality.router, prefix=f"{settings.API_V1_STR}/locality", tags=["Locality"])
 app.include_router(admin_settings.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Settings"])
