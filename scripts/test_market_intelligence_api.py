@@ -2,7 +2,7 @@ import requests
 import json
 
 # Test the corrected endpoint
-BASE_URL = "http://127.0.0.1:8000/api/v1"
+BASE_URL = "https://realstart.nandhitech.in/api/v1"
 LANDMARK_ID = "30fa0039-a3fc-4b15-935f-ca8850dbb875"
 
 print("Testing Market Intelligence API...")

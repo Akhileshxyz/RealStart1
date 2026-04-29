@@ -152,8 +152,8 @@ def _detail_public(
         growth_history=sanitize_json(intel.growth_history) or [],
         growth_prediction=sanitize_json(intel.growth_prediction) or [],
         political_agenda=sanitize_json(intel.political_agenda) or {},
-        amenities=_sanitize_amenities(sanitize_json(intel.amenities) or []),
-        upcoming_projects=sanitize_json(intel.upcoming_projects) or [],
+        amenities=_sanitize_amenities((sanitize_json(intel.amenities) or []) + (getattr(landmark, "amenities", []) or [])),
+        upcoming_projects=_upcoming_strings_to_items((sanitize_json(intel.upcoming_projects) or []) + (getattr(landmark, "upcoming_projects_list", []) or [])),
         investment_landmarks=sanitize_json(intel.investment_landmarks) or [],
         map_landmarks=sanitize_map_landmarks(intel.map_landmarks),
         created_at=intel.created_at,
@@ -166,14 +166,21 @@ def _upcoming_strings_to_items(raw_data: List[Any]) -> List[UpcomingDevelopmentI
     """Convert upcoming projects to structured items. Handles both old string format and new structured format."""
     out: List[UpcomingDevelopmentItem] = []
     for raw in raw_data:
-        # Handle new structured format
-        if isinstance(raw, dict):
+        if not raw:
+            continue
+            
+        # Handle dict or Pydantic model
+        if isinstance(raw, (dict, BaseModel)) or hasattr(raw, "model_dump") or hasattr(raw, "get"):
+            d = raw if isinstance(raw, dict) else (raw.model_dump() if hasattr(raw, "model_dump") else getattr(raw, "__dict__", {}))
+            
+            # Map description (Landmark highlight) to detail (MI schema)
+            detail = d.get("detail") or d.get("description")
+            icon = d.get("icon_url")
+            
             out.append(UpcomingDevelopmentItem(
-                title=str(raw.get("title", "")),
-                detail=raw.get("detail"),
-                development_type=raw.get("development_type"),
-                expected_year=raw.get("expected_year"),
-                status=raw.get("status")
+                title=str(d.get("title", "")),
+                detail=str(detail) if detail else None,
+                icon_url=icon
             ))
         # Handle old string format for backward compatibility
         elif isinstance(raw, str):
@@ -184,7 +191,7 @@ def _upcoming_strings_to_items(raw_data: List[Any]) -> List[UpcomingDevelopmentI
                 a, b = s.split(" - ", 1)
                 out.append(UpcomingDevelopmentItem(title=a.strip(), detail=b.strip()))
             else:
-                out.append(UpcomingDevelopmentItem(title=s, detail=None))
+                out.append(UpcomingDevelopmentItem(title=s))
     return out
 
 
@@ -233,7 +240,11 @@ async def build_market_intelligence_area_detail(
     )
     upcoming_raw = sanitize_json(intelligence.upcoming_projects) or []
     upcoming_list = upcoming_raw if isinstance(upcoming_raw, list) else []
-    upcoming_items = _upcoming_strings_to_items(upcoming_list)
+    
+    # Merge with landmark highlight list
+    lm_highlights = getattr(landmark, "upcoming_projects_list", []) or []
+    combined_upcoming = upcoming_list + lm_highlights
+    upcoming_items = _upcoming_strings_to_items(combined_upcoming)
 
     layouts = await _area_top_developed_layouts(landmark.id)
     comparison = AreaComparisonHintPublic(
@@ -263,7 +274,7 @@ async def build_market_intelligence_area_detail(
         box_content=area_box,
         growth_history=sanitize_json(intelligence.growth_history) or [],
         growth_prediction=sanitize_json(intelligence.growth_prediction) or [],
-        amenities=_sanitize_amenities(sanitize_json(intelligence.amenities) or []),
+        amenities=_sanitize_amenities((sanitize_json(intelligence.amenities) or []) + (getattr(landmark, "amenities", []) or [])),
         upcoming_developments=upcoming_items,
         top_spots_to_invest=sanitize_json(intelligence.investment_landmarks) or [],
         top_developed_layouts=layouts,

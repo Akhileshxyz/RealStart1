@@ -12,8 +12,8 @@ class PricePoint(BaseModel):
 
     @field_validator('value', mode='before')
     @classmethod
-    def parse_value(cls, v: Any) -> Any:
-        return v
+    def parse_value(cls, v: Any) -> float:
+        return parse_price_string(v)
 
 class PredictionPoint(BaseModel):
     year: int
@@ -23,8 +23,8 @@ class PredictionPoint(BaseModel):
 
     @field_validator('value1', 'value2', mode='before')
     @classmethod
-    def parse_values(cls, v: Any) -> Any:
-        return v
+    def parse_values(cls, v: Any) -> float:
+        return parse_price_string(v)
 
 class PoliticalAgenda(BaseModel):
     mla: str
@@ -40,11 +40,17 @@ class City(Document):
     city_report_pdf: Optional[str] = None 
     
     # Financial/Price Stats
-    avg_appreciation_start_value: Union[float, str] = 0
-    avg_appreciation_end_value: Union[float, str] = 0
+    avg_appreciation_start_value: float = 0
+    avg_appreciation_end_value: float = 0
     # Consolidated Market Intelligence Fields (The 6 Boxes)
-    avg_commercial_plot_price: Union[float, str] = 0
-    avg_residential_plot_price: Union[float, str] = 0
+    avg_commercial_plot_price: float = 0
+    avg_residential_plot_price: float = 0
+
+    @field_validator('avg_appreciation_start_value', 'avg_appreciation_end_value', 
+                     'avg_commercial_plot_price', 'avg_residential_plot_price', mode='before')
+    @classmethod
+    def validate_prices(cls, v: Any) -> float:
+        return parse_price_string(v)
     avg_rental_2bhk: Optional[str] = None # e.g. "₹9,000 – ₹13,000"
     economic_output: Optional[str] = None # e.g. "₹10,000 – ₹12,000 Crores"
     population: Optional[str] = None # e.g. "1.40 Lakhs"

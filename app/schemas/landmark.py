@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.models.landmark import RiskProfile
 
 class LandmarkSelection(BaseModel):
@@ -30,12 +30,19 @@ class LandmarkPricePointSchema(BaseModel):
             return str(v)
         return v
 
-    @field_validator("reason", mode="before")
+class UpcomingHighlightSchema(BaseModel):
+    title: str
+    description: Optional[str] = None
+    icon_url: Optional[str] = None
+
+    @model_validator(mode="before")
     @classmethod
-    def default_reason(cls, v):
-        if v is None:
-            return ""
-        return v
+    def validate_whole_model(cls, data: Any) -> Any:
+        if isinstance(data, str):
+            return {"title": data}
+        return data
+
+    model_config = ConfigDict(from_attributes=True)
 
 class LandmarkPredictionPointSchema(BaseModel):
     year: int
@@ -64,24 +71,39 @@ class GeoJSONLocationSchema(BaseModel):
 
 class LandmarkSummary(BaseModel):
     """Reference summary for nested lists"""
-    id: UUID
-    name: str
-    city_id: UUID
+    id: Optional[UUID] = None
+    name: Optional[str] = None
+    city_id: Optional[UUID] = None
+    
+    # Unified fields for highlights
+    title: Optional[str] = None
+    description: Optional[str] = None
+    icon_url: Optional[str] = None
+    is_highlight: bool = False
+
     images: List[str] = []
-    avg_plot_price: float = 0
+    avg_plot_price: Union[float, str] = 0
     location: Optional[GeoJSONLocationSchema] = None
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class UpcomingProjectSummary(BaseModel):
-    id: UUID
-    name: str
-    slug: str
+    id: Optional[UUID] = None
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    
+    # Unified fields for highlights & projects
+    title: Optional[str] = None
+    detail: Optional[str] = None
+    icon_url: Optional[str] = None
+    is_highlight: bool = False
+    project_id: Optional[str] = None
+
     min_price: Optional[float] = None
     max_price: Optional[float] = None
     gallery_images: List[str] = []
     property_type: Optional[str] = None
-    status: str
+    status: Optional[str] = "Planned"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -124,9 +146,12 @@ class LandmarkBase(BaseModel):
     
     # Relationships (Detailed for Response)
     nearby_landmarks: List[LandmarkSummary] = []
-    upcoming_projects_list: List[UpcomingProjectSummary] = []
+    nearby_landmarks_list: List[UpcomingHighlightSchema] = []
+    upcoming_projects: List[UpcomingProjectSummary] = []
     nearby_projects: List[UpcomingProjectSummary] = []
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    amenities: List[str] = []
+    upcoming_projects_list: List[UpcomingHighlightSchema] = []
 
     # Relationship IDs (For Input/Storage)
     nearby_landmarks_ids: List[UUID] = []
@@ -166,6 +191,9 @@ class LandmarkUpdate(BaseModel):
     upcoming_project_ids: Optional[List[UUID]] = None
     nearby_project_ids: Optional[List[UUID]] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    amenities: Optional[List[str]] = None
+    upcoming_projects_list: Optional[List[UpcomingHighlightSchema]] = None
+    nearby_landmarks_list: Optional[List[UpcomingHighlightSchema]] = None
 
     # Re-use validator for Update too
     @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", mode="before")

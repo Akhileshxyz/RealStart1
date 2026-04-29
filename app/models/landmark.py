@@ -5,7 +5,7 @@ from enum import Enum
 import re
 from app.utils.parsers import parse_price_string
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 class RiskProfile(str, Enum):
     LOW = "low"
@@ -30,12 +30,26 @@ class LandmarkPricePoint(BaseModel):
             return str(v)
         return v
 
-    @field_validator("reason", mode="before")
+class UpcomingHighlight(BaseModel):
+    title: str
+    description: Optional[str] = None
+    icon_url: Optional[str] = None
+
+    @field_validator("title", mode="before")
     @classmethod
-    def default_reason(cls, v):
-        if v is None:
-            return ""
+    def handle_legacy_string(cls, v, info):
+        # If the whole input to UpcomingHighlight is a string, 
+        # Pydantic calls the validator for each field. 
+        # But wait, 'mode="before"' on a field only works if the input is a dict.
+        # To handle the case where the whole item is a string, we need a model_validator.
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_whole_model(cls, data: Any) -> Any:
+        if isinstance(data, str):
+            return {"title": data}
+        return data
 
 
 class LandmarkPredictionPoint(BaseModel):
@@ -103,6 +117,9 @@ class Landmark(Document):
     upcoming_project_ids: List[UUID] = []
     nearby_project_ids: List[UUID] = []
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    amenities: List[str] = []
+    upcoming_projects_list: List[UpcomingHighlight] = []
+    nearby_landmarks_list: List[UpcomingHighlight] = []
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

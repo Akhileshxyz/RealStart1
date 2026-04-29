@@ -16,6 +16,7 @@ class LandmarkPublicResponse(BaseModel):
     id: UUID
     name: str
     city: Optional[str] = None
+    city_id: Optional[UUID] = None
     zone: Optional[str] = None
     description: Optional[str] = None
     hero_desc: Optional[str] = None
@@ -35,13 +36,21 @@ class LandmarkPublicResponse(BaseModel):
     active_layouts_count: int = 0
     rera_projects_count: int = 0
     upcoming_project_ids: List[UUID] = []
-    upcoming_projects_list: List[Dict[str, Any]] = []
+    upcoming_projects_list: List[Dict[str, Any]] = [] # Real project entities
+    upcoming_developments: List[Dict[str, Any]] = [] # Manual highlights
+    nearby_projects: List[Dict[str, Any]] = []
+    nearby_landmarks: List[Dict[str, Any]] = []
+    top_investment_spots: List[Dict[str, Any]] = [] # Manual highlights
+    amenities: List[str] = []
+    nearby_amenities: List[Dict[str, Any]] = []
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True
+    }
 
 
 async def _get_upcoming_projects(landmark_id: UUID, manual_project_ids: List[UUID]) -> List[Dict[str, Any]]:
@@ -80,6 +89,22 @@ async def _get_upcoming_projects(landmark_id: UUID, manual_project_ids: List[UUI
 
 
 
+async def _get_nearby_landmarks(landmark_ids: List[UUID]) -> List[Dict[str, Any]]:
+    """Fetch basic info for nearby landmarks."""
+    if not landmark_ids:
+        return []
+    landmarks = await Landmark.find(In(Landmark.id, landmark_ids)).to_list()
+    return [
+        {
+            "id": str(lm.id),
+            "name": sanitize_str(lm.name),
+            "avg_plot_price": str(lm.avg_plot_price) if lm.avg_plot_price else "0",
+            "city": sanitize_str(lm.city) if lm.city else None
+        }
+        for lm in landmarks
+    ]
+
+
 @router.get("/", response_model=List[LandmarkPublicResponse])
 async def list_public_landmarks(
     city_id: Optional[UUID] = Query(None, description="Filter by city ID"),
@@ -92,44 +117,95 @@ async def list_public_landmarks(
     """
     query = {}
     if city_id:
-        query["city_id"] = city_id
+        query["$or"] = [
+            {"city_id": city_id},
+            {"city_id": str(city_id)}
+        ]
 
     landmarks = await Landmark.find(query).skip(skip).limit(limit).to_list()
 
+    if not landmarks:
+        return []
+
     results = []
     for lm in landmarks:
-        upcoming_projects = await _get_upcoming_projects(lm.id, lm.upcoming_project_ids or [])
-        results.append(
-            LandmarkPublicResponse(
+        try:
+            upcoming_projects = await _get_upcoming_projects(lm.id, lm.upcoming_project_ids or [])
+            
+            # Fetch real nearby landmarks
+            # If explicit nearby_landmarks_ids are provided, use them. 
+            # OTHERWISE, fetch other landmarks from the same city.
+            if lm.nearby_landmarks_ids:
+                real_nearby = await _get_nearby_landmarks(lm.nearby_landmarks_ids)
+            elif lm.city_id:
+                # Fetch up to 10 other landmarks from the same city
+                city_lms = await Landmark.find(
+                    Landmark.city_id == lm.city_id,
+                    Landmark.id != lm.id
+                ).limit(10).to_list()
+                real_nearby = [
+                    {
+                        "id": str(clm.id),
+                        "name": sanitize_str(clm.name),
+                        "avg_plot_price": str(clm.avg_plot_price) if clm.avg_plot_price else "0",
+                        "city": sanitize_str(clm.city) if clm.city else None
+                    }
+                    for clm in city_lms
+                ]
+            else:
+                real_nearby = []
+
+            manual_nearby = [
+                {
+                    "is_highlight": True, 
+                    "title": uh.title, 
+                    "description": uh.description, 
+                    "icon_url": uh.icon_url
+                } 
+                for uh in lm.nearby_landmarks_list
+            ] if lm.nearby_landmarks_list else []
+            
+            item = LandmarkPublicResponse(
                 id=lm.id,
-                name=sanitize_str(lm.name),
-                city=sanitize_str(lm.city) if lm.city else None,
-                zone=sanitize_str(lm.zone) if lm.zone else None,
-                description=sanitize_str(lm.description) if lm.description else None,
-                hero_desc=sanitize_str(lm.hero_desc) if lm.hero_desc else None,
-                image_url=public_image_url(getattr(lm, "image_url", None)),
-                images=lm.images or [],
-                avg_plot_price=str(lm.avg_plot_price) if lm.avg_plot_price else "",
-                avg_apartment_price=str(lm.avg_apartment_price) if lm.avg_apartment_price else "",
-                avg_price_per_sqft=str(lm.avg_price_per_sqft) if lm.avg_price_per_sqft else "",
-                residential_rent_2bhk=lm.residential_rent_2bhk or "",
-                rental_yield=lm.rental_yield or "",
+                name=lm.name,
+                city=sanitize_str(lm.city),
+                city_id=lm.city_id,
+                zone=sanitize_str(lm.zone),
+                description=lm.description,
+                hero_desc=lm.hero_desc,
+                image_url=public_image_url(lm.images[0]) if lm.images else None,
+                images=[public_image_url(img) for img in lm.images],
+                avg_plot_price=str(lm.avg_plot_price) if lm.avg_plot_price else "0",
+                avg_apartment_price=str(lm.avg_apartment_price) if lm.avg_apartment_price else "0",
+                avg_price_per_sqft=str(lm.avg_price_per_sqft) if lm.avg_price_per_sqft else "0",
+                residential_rent_2bhk=str(lm.residential_rent_2bhk) if lm.residential_rent_2bhk else "0",
+                rental_yield=str(lm.rental_yield) if lm.rental_yield else "0",
                 price_trend=lm.price_trend,
                 price_trend_3m=lm.price_trend_3m,
-                risk_profile=getattr(lm, "risk_profile", "moderate"),
-                price_growth=[pg.model_dump() for pg in lm.price_growth] if lm.price_growth else [],
-                price_prediction=[pp.model_dump() for pp in lm.price_prediction] if lm.price_prediction else [],
+                risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else str(lm.risk_profile),
+                price_growth=[pg.model_dump() if hasattr(pg, "model_dump") else pg for pg in (lm.price_growth or [])],
+                price_prediction=[pp.model_dump() if hasattr(pp, "model_dump") else pp for pp in (lm.price_prediction or [])],
                 total_projects=lm.total_projects or 0,
                 active_layouts_count=lm.active_layouts_count or 0,
                 rera_projects_count=lm.rera_projects_count or 0,
                 upcoming_project_ids=lm.upcoming_project_ids or [],
                 upcoming_projects_list=upcoming_projects,
+                upcoming_developments=[ud.model_dump() if hasattr(ud, "model_dump") else ud for ud in (lm.upcoming_projects_list or [])],
+                nearby_projects=[{"id": str(pid)} for pid in (lm.nearby_project_ids or [])],
+                nearby_landmarks=real_nearby,
+                top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (lm.nearby_landmarks_list or [])],
+                amenities=lm.amenities or [],
+                nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (lm.nearby_amenities or [])],
                 latitude=lm.latitude,
                 longitude=lm.longitude,
-                location=lm.location.model_dump() if lm.location else None,
+                location=lm.location.model_dump() if (lm.location and hasattr(lm.location, "model_dump")) else (lm.location if isinstance(lm.location, dict) else None),
             )
-        )
-    return results
+            results.append(item)
+        except Exception as e:
+            print(f"Error processing landmark {lm.id}: {e}")
+            continue
+    
+    return results or []
 
 
 @router.get("/{landmark_id}", response_model=LandmarkPublicResponse)
@@ -146,33 +222,62 @@ async def get_public_landmark(landmark_id: UUID) -> Any:
         )
 
     upcoming_projects = await _get_upcoming_projects(landmark.id, landmark.upcoming_project_ids or [])
+    
+    # Fetch real nearby landmarks
+    # If explicit nearby_landmarks_ids are provided, use them. 
+    # OTHERWISE, fetch other landmarks from the same city.
+    if landmark.nearby_landmarks_ids:
+        real_nearby = await _get_nearby_landmarks(landmark.nearby_landmarks_ids)
+    elif landmark.city_id:
+        # Fetch up to 10 other landmarks from the same city
+        city_lms = await Landmark.find(
+            Landmark.city_id == landmark.city_id,
+            Landmark.id != landmark.id
+        ).limit(10).to_list()
+        real_nearby = [
+            {
+                "id": str(clm.id),
+                "name": sanitize_str(clm.name),
+                "avg_plot_price": str(clm.avg_plot_price) if clm.avg_plot_price else "0",
+                "city": sanitize_str(clm.city) if clm.city else None
+            }
+            for clm in city_lms
+        ]
+    else:
+        real_nearby = []
 
     return LandmarkPublicResponse(
         id=landmark.id,
-        name=sanitize_str(landmark.name),
-        city=sanitize_str(landmark.city) if landmark.city else None,
-        zone=sanitize_str(landmark.zone) if landmark.zone else None,
-        description=sanitize_str(landmark.description) if landmark.description else None,
-        hero_desc=sanitize_str(landmark.hero_desc) if landmark.hero_desc else None,
-        image_url=public_image_url(getattr(landmark, "image_url", None)),
-        images=landmark.images or [],
-        avg_plot_price=str(landmark.avg_plot_price) if landmark.avg_plot_price else "",
-        avg_apartment_price=str(landmark.avg_apartment_price) if landmark.avg_apartment_price else "",
-        avg_price_per_sqft=str(landmark.avg_price_per_sqft) if landmark.avg_price_per_sqft else "",
-        residential_rent_2bhk=landmark.residential_rent_2bhk or "",
-        rental_yield=landmark.rental_yield or "",
+        name=landmark.name,
+        city=sanitize_str(landmark.city),
+        city_id=landmark.city_id,
+        zone=sanitize_str(landmark.zone),
+        description=landmark.description,
+        hero_desc=landmark.hero_desc,
+        image_url=public_image_url(landmark.images[0]) if landmark.images else None,
+        images=[public_image_url(img) for img in landmark.images],
+        avg_plot_price=str(landmark.avg_plot_price) if landmark.avg_plot_price else "0",
+        avg_apartment_price=str(landmark.avg_apartment_price) if landmark.avg_apartment_price else "0",
+        avg_price_per_sqft=str(landmark.avg_price_per_sqft) if landmark.avg_price_per_sqft else "0",
+        residential_rent_2bhk=str(landmark.residential_rent_2bhk) if landmark.residential_rent_2bhk else "0",
+        rental_yield=str(landmark.rental_yield) if landmark.rental_yield else "0",
         price_trend=landmark.price_trend,
         price_trend_3m=landmark.price_trend_3m,
-        risk_profile=getattr(landmark, "risk_profile", "moderate"),
-        price_growth=[pg.model_dump() for pg in landmark.price_growth] if landmark.price_growth else [],
-        price_prediction=[pp.model_dump() for pp in landmark.price_prediction] if landmark.price_prediction else [],
+        risk_profile=landmark.risk_profile.value if hasattr(landmark.risk_profile, "value") else str(landmark.risk_profile),
+        price_growth=[pg.model_dump() if hasattr(pg, "model_dump") else pg for pg in (landmark.price_growth or [])],
+        price_prediction=[pp.model_dump() if hasattr(pp, "model_dump") else pp for pp in (landmark.price_prediction or [])],
         total_projects=landmark.total_projects or 0,
         active_layouts_count=landmark.active_layouts_count or 0,
         rera_projects_count=landmark.rera_projects_count or 0,
         upcoming_project_ids=landmark.upcoming_project_ids or [],
         upcoming_projects_list=upcoming_projects,
+        upcoming_developments=[ud.model_dump() if hasattr(ud, "model_dump") else ud for ud in (landmark.upcoming_projects_list or [])],
+        nearby_projects=[{"id": str(pid)} for pid in (landmark.nearby_project_ids or [])],
+        nearby_landmarks=real_nearby,
+        top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (landmark.nearby_landmarks_list or [])],
+        amenities=landmark.amenities or [],
+        nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (landmark.nearby_amenities or [])],
         latitude=landmark.latitude,
         longitude=landmark.longitude,
-        location=landmark.location.model_dump() if landmark.location else None,
+        location=landmark.location.model_dump() if (landmark.location and hasattr(landmark.location, "model_dump")) else (landmark.location if isinstance(landmark.location, dict) else None),
     )
-

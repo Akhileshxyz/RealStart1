@@ -2,6 +2,7 @@ from typing import List, Optional, Union, Any, Dict
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field
+from app.schemas.landmark import UpcomingHighlightSchema
 
 class PricePointSchema(BaseModel):
     year: int
@@ -26,12 +27,18 @@ class LandmarkRichResponse(BaseModel):
     location: Optional[Any] = None # GeoJSON coordinates
     amenities: Optional[List[str]] = [] # nearby_amenities
     
-    avg_plot_price: Optional[float] = 0
-    avg_apartment_price: Optional[float] = 0
-    avg_price_per_sqft: Optional[float] = 0
+    avg_plot_price: Optional[Union[float, str]] = 0
+    avg_apartment_price: Optional[Union[float, str]] = 0
+    avg_price_per_sqft: Optional[Union[float, str]] = 0
     residential_rent_2bhk: Optional[str] = ""
     rental_yield: Optional[str] = "" 
+    upcoming_projects_list: Optional[List[UpcomingHighlightSchema]] = []
+    nearby_landmarks_list: Optional[List[UpcomingHighlightSchema]] = []
     risk_profile: Optional[str] = "moderate"
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
 
 class LandmarkFullPublicResponse(BaseModel):
     """Full Landmark details for Market Intelligence view"""
@@ -42,7 +49,7 @@ class LandmarkFullPublicResponse(BaseModel):
     location: Optional[Any] = None
     
     # Market Data
-    avg_price_per_sqft: Optional[float] = None
+    avg_price_per_sqft: Optional[Union[float, str]] = None
     median_price: Optional[float] = None
     growth_forecast_5yr: Optional[float] = None # Percentage 
     price_trend: Optional[str] = None  # "rising", "stable", "falling"

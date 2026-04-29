@@ -50,6 +50,26 @@ def _save_landmark_images(landmark_id: UUID, files: List[UploadFile]) -> List[st
     
     return saved_paths
 
+def _save_landmark_icons(landmark_id: UUID, files: List[UploadFile]) -> List[str]:
+    """Helper to save landmark icons to the filesystem"""
+    saved_paths = []
+    upload_root = Path(settings.UPLOAD_DIR)
+    icons_dir = upload_root / "localities" / str(landmark_id) / "icons"
+    icons_dir.mkdir(parents=True, exist_ok=True)
+
+    for file in files:
+        content_type = (file.content_type or "").split(";")[0].strip().lower()
+        if content_type in _ALLOWED_IMAGE_TYPES:
+            ext = _ALLOWED_IMAGE_TYPES[content_type]
+            # Use filename from file to distinguish between different highlights
+            filename = f"{Path(file.filename).stem}_{int(datetime.utcnow().timestamp())}{ext}"
+            dest = icons_dir / filename
+            with dest.open("wb") as out:
+                shutil.copyfileobj(file.file, out)
+            saved_paths.append(f"/uploads/localities/{landmark_id}/icons/{filename}")
+    
+    return saved_paths
+
 async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
     """Helper to resolve UUID lists into detailed summaries for the response"""
     data = landmark.model_dump()
@@ -63,9 +83,7 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
     else:
         data["nearby_landmarks"] = []
 
-    # 2. Resolve Upcoming Projects
-    # We include projects EXPLICITLY linked in upcoming_project_ids 
-    # AND projects that point to this landmark via Project.landmark_id
+    # 2. Resolve Upcoming Projects (Merged Infrastructure + Projects)
     projects_via_field = await Project.find(Project.landmark_id == landmark.id).to_list()
     
     manual_ids = landmark.upcoming_project_ids or []
@@ -76,19 +94,64 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
         additional_projs = await Project.find(In(Project.id, remaining_ids)).to_list()
         projects_via_field.extend(additional_projs)
 
+    from app.utils.media import public_image_url
     
-    data["upcoming_projects_list"] = [
-        UpcomingProjectSummary.model_validate(p.model_dump()) for p in projects_via_field
+    # Start with linked Project objects, mapped to a rich structure
+    resolved_upcoming = [
+        {
+            "title": p.name,
+            "detail": getattr(p, "property_type", "Upcoming Project"),
+            "icon_url": public_image_url(p.gallery_images[0]) if p.gallery_images else None,
+            "project_id": str(p.id)
+        }
+        for p in projects_via_field
     ]
+
+    # Append manual highlights (Infrastructure cards)
+    if landmark.upcoming_projects_list:
+        for highlight in landmark.upcoming_projects_list:
+            h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
+            resolved_upcoming.append({
+                "title": h_dict.get("title"),
+                "detail": h_dict.get("description") or h_dict.get("detail"),
+                "icon_url": h_dict.get("icon_url"),
+                "is_highlight": True
+            })
+    
+    data["upcoming_projects"] = resolved_upcoming
 
     # 3. Resolve Nearby Projects
     if landmark.nearby_project_ids:
         nearby_projs = await Project.find(In(Project.id, landmark.nearby_project_ids)).to_list()
         data["nearby_projects"] = [
-            UpcomingProjectSummary.model_validate(p.model_dump()) for p in nearby_projs
+            {
+                "id": p.id,
+                "name": p.name,
+                "slug": p.slug,
+                "thumbnail_url": public_image_url(p.gallery_images[0]) if p.gallery_images else None,
+            }
+            for p in nearby_projs
         ]
     else:
         data["nearby_projects"] = []
+
+    # 4. Resolve and Merge Nearby Landmarks (Linked + Manual)
+    nearby_landmarks = []
+    if landmark.nearby_landmarks_ids:
+        nearby_lms = await Landmark.find(In(Landmark.id, landmark.nearby_landmarks_ids)).to_list()
+        nearby_landmarks = [LandmarkSummary.model_validate(l.model_dump()) for l in nearby_lms]
+    
+    if landmark.nearby_landmarks_list:
+        for highlight in landmark.nearby_landmarks_list:
+            h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
+            nearby_landmarks.append(LandmarkSummary(
+                title=h_dict.get("title"),
+                name=h_dict.get("title"),
+                description=h_dict.get("description"),
+                icon_url=h_dict.get("icon_url"),
+                is_highlight=True
+            ))
+    data["nearby_landmarks"] = nearby_landmarks
 
     return data
 
@@ -148,6 +211,7 @@ async def list_all_landmarks(
 async def create_landmark(
     data: str = Form(...), # JSON stringified schema
     files: List[UploadFile] = File(default=[]),
+    icons: List[UploadFile] = File(default=[]),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
@@ -164,6 +228,23 @@ async def create_landmark(
     
     if files:
         landmark.images = _save_landmark_images(landmark.id, files)
+    
+    if icons:
+        # Save icons and update the URLs in upcoming_projects_list
+        # We assume the filename in 'icons' matches the title or index somehow?
+        # Actually, let's just save them all and let the frontend handle the mapping via URLs returned.
+        # But wait, create needs to return the URLs.
+        icon_urls = _save_landmark_icons(landmark.id, icons)
+        # Mapping logic: if icon file name is 'icon_N.png', it goes to index N
+        for icon_path in icon_urls:
+            try:
+                # Expecting something like /uploads/localities/ID/icons/icon_0_timestamp.png
+                idx_part = icon_path.split("/")[-1].split("_")[1]
+                idx = int(idx_part)
+                if idx < len(landmark.upcoming_projects_list):
+                    landmark.upcoming_projects_list[idx].icon_url = icon_path
+            except:
+                pass
         
     await landmark.insert()
     return await _resolve_landmark_relationships(landmark)
@@ -173,6 +254,7 @@ async def update_landmark(
     landmark_id: UUID,
     data: str = Form(...),
     files: List[UploadFile] = File(default=[]),
+    icons: List[UploadFile] = File(default=[]),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
@@ -198,6 +280,31 @@ async def update_landmark(
     if files:
         new_images = _save_landmark_images(landmark.id, files)
         landmark.images.extend(new_images)
+
+    if icons:
+        icon_urls = _save_landmark_icons(landmark.id, icons)
+        for icon_path in icon_urls:
+            try:
+                # Filename is like 'icon_0_timestamp.png' or 'spot_icon_0_timestamp.png'
+                filename = icon_path.split("/")[-1]
+                parts = filename.split("_")
+                
+                if filename.startswith("spot_icon_") and len(parts) >= 3:
+                    # spot_icon_N_timestamp
+                    idx = int(parts[2])
+                    if idx < len(landmark.nearby_landmarks_list):
+                        item = landmark.nearby_landmarks_list[idx]
+                        if isinstance(item, dict): item["icon_url"] = icon_path
+                        else: item.icon_url = icon_path
+                elif filename.startswith("icon_") and len(parts) >= 2:
+                    # icon_N_timestamp
+                    idx = int(parts[1])
+                    if idx < len(landmark.upcoming_projects_list):
+                        item = landmark.upcoming_projects_list[idx]
+                        if isinstance(item, dict): item["icon_url"] = icon_path
+                        else: item.icon_url = icon_path
+            except Exception as e:
+                logger.error(f"Error mapping icon {icon_path}: {str(e)}")
 
     landmark.updated_at = datetime.utcnow()
     await landmark.save()

@@ -61,6 +61,9 @@ class FeaturedCityResponse(BaseModel):
     id: UUID
     name: str
     image: Optional[str] = None
+    rental_yield: Optional[str] = "" 
+    upcoming_projects_list: Optional[List[str]] = []
+    risk_profile: Optional[str] = "moderate"
     appreciation_potential_5yr: Optional[str] = None
     avg_appreciation_end_value: Optional[Union[float, str]] = None
     avg_appreciation_start_value: Optional[Union[float, str]] = None
@@ -99,10 +102,10 @@ def _format_price(value: Optional[float]) -> Optional[str]:
 
 
 def _format_price_lakhs(value: float) -> str:
-    """Format price in Lakhs or Crores (base is per 1200 sqft)."""
+    """Format price in Lakhs or Crores."""
     if value >= 100:
-        return f"₹{value / 100:.2f} Cr"
-    return f"₹{int(value)} L"
+        return f"₹{value / 100:g} Cr"
+    return f"₹{value:g} L"
 
 
 def _format_total_price(base_price_per_1200sqft: float, sqft: int) -> str:
@@ -210,99 +213,133 @@ async def get_city_by_slug(slug: str) -> Any:
     if not city:
         raise HTTPException(status_code=404, detail="City not found")
     
-    # Fetch detailed landmarks
-    landmarks = []
-    if city.landmarks_id_list:
-        db_landmarks = await Landmark.find(In(Landmark.id, city.landmarks_id_list)).to_list()
-        for lm in db_landmarks:
-            # Handle amenities (nearby_amenities can be list or dict)
-            amenities = []
-            if isinstance(lm.nearby_amenities, list):
-                amenities = lm.nearby_amenities[:3] # Limit to 2-3
-            elif isinstance(lm.nearby_amenities, dict):
-                # Flatten dict values if it's categorized
-                for val in lm.nearby_amenities.values():
-                    if isinstance(val, list):
-                        amenities.extend(val)
-                amenities = amenities[:3]
+    try:
+        # Fetch detailed landmarks
+        landmarks = []
+        if city.landmarks_id_list:
+            db_landmarks = await Landmark.find(In(Landmark.id, city.landmarks_id_list)).to_list()
+            for lm in db_landmarks:
+                # Handle amenities (nearby_amenities can be list or dict)
+                amenities = []
+                if isinstance(lm.nearby_amenities, list):
+                    amenities = lm.nearby_amenities[:3] # Limit to 2-3
+                elif isinstance(lm.nearby_amenities, dict):
+                    # Flatten dict values if it's categorized
+                    for val in lm.nearby_amenities.values():
+                        if isinstance(val, list):
+                            amenities.extend(val)
+                    amenities = amenities[:3]
 
-            landmarks.append(LandmarkRichResponse(
-                id=lm.id,
-                name=lm.name,
-                image_url=lm.images[0] if lm.images else None,
-                location=lm.location.model_dump() if lm.location else None,
-                amenities=amenities,
-                avg_plot_price=lm.avg_plot_price,
-                avg_apartment_price=lm.avg_apartment_price,
-                avg_price_per_sqft=lm.avg_price_per_sqft,
-                residential_rent_2bhk=lm.residential_rent_2bhk,
-                rental_yield=lm.rental_yield,
-                risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
-            ))
-    
-    # Fetch TOP Investment Landmarks
-    top_investment_landmarks = []
-    if getattr(city, "top_landmarks_to_invest", None):
-        db_lm_invest = await Landmark.find(In(Landmark.id, city.top_landmarks_to_invest)).to_list()
-        for lm in db_lm_invest:
-            amenities = []
-            if isinstance(lm.nearby_amenities, list):
-                amenities = lm.nearby_amenities[:3]
-            elif isinstance(lm.nearby_amenities, dict):
-                for val in lm.nearby_amenities.values():
-                    if isinstance(val, list):
-                        amenities.extend(val)
-                amenities = amenities[:3]
+                landmarks.append(LandmarkRichResponse(
+                    id=lm.id,
+                    name=lm.name,
+                    image_url=lm.images[0] if lm.images else None,
+                    location=lm.location.model_dump() if lm.location else None,
+                    amenities=lm.amenities if lm.amenities else amenities,
+                    upcoming_projects_list=lm.upcoming_projects_list or [],
+                    avg_plot_price=lm.avg_plot_price,
+                    avg_apartment_price=lm.avg_apartment_price,
+                    avg_price_per_sqft=lm.avg_price_per_sqft,
+                    residential_rent_2bhk=lm.residential_rent_2bhk,
+                    rental_yield=lm.rental_yield,
+                    risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
+                ))
+        
+        # Fetch TOP Investment Landmarks
+        top_investment_landmarks = []
+        if getattr(city, "top_landmarks_to_invest", None):
+            db_lm_invest = await Landmark.find(In(Landmark.id, city.top_landmarks_to_invest)).to_list()
+            for lm in db_lm_invest:
+                amenities = []
+                if isinstance(lm.nearby_amenities, list):
+                    amenities = lm.nearby_amenities[:3]
+                elif isinstance(lm.nearby_amenities, dict):
+                    for val in lm.nearby_amenities.values():
+                        if isinstance(val, list):
+                            amenities.extend(val)
+                    amenities = amenities[:3]
 
-            top_investment_landmarks.append(LandmarkRichResponse(
-                id=lm.id,
-                name=lm.name,
-                image_url=lm.images[0] if lm.images else None,
-                location=lm.location.model_dump() if lm.location else None,
-                amenities=amenities,
-                avg_plot_price=lm.avg_plot_price,
-                avg_apartment_price=lm.avg_apartment_price,
-                avg_price_per_sqft=lm.avg_price_per_sqft,
-                residential_rent_2bhk=lm.residential_rent_2bhk,
-                rental_yield=lm.rental_yield,
-                risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
-            ))
+                top_investment_landmarks.append(LandmarkRichResponse(
+                    id=lm.id,
+                    name=lm.name,
+                    image_url=lm.images[0] if lm.images else None,
+                    location=lm.location.model_dump() if lm.location else None,
+                    amenities=lm.amenities if lm.amenities else amenities,
+                    upcoming_projects_list=lm.upcoming_projects_list or [],
+                    avg_plot_price=lm.avg_plot_price,
+                    avg_apartment_price=lm.avg_apartment_price,
+                    avg_price_per_sqft=lm.avg_price_per_sqft,
+                    residential_rent_2bhk=lm.residential_rent_2bhk,
+                    rental_yield=lm.rental_yield,
+                    risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else lm.risk_profile
+                ))
 
-    # Fetch detailed projects
-    resolved_projects = []
-    if city.top_developed_projects:
-        db_projects = await Project.find(In(Project.id, city.top_developed_projects)).to_list()
-        for p in db_projects:
-            resolved_projects.append(FeaturedProjectCard(
-                id=p.id,
-                name=p.name,
-                slug=p.slug,
-                location_name=p.city,
-                price_display=_format_price(p.min_price),
-                price_value=int(p.min_price) if p.min_price else None,
-                thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
-            ))
+        # Fetch detailed projects
+        resolved_projects = []
+        if city.top_developed_projects:
+            db_projects = await Project.find(In(Project.id, city.top_developed_projects)).to_list()
+            for p in db_projects:
+                resolved_projects.append(FeaturedProjectCard(
+                    id=p.id,
+                    name=p.name,
+                    slug=p.slug,
+                    location_name=p.city,
+                    price_display=_format_price(p.min_price),
+                    price_value=int(p.min_price) if p.min_price else None,
+                    thumbnail_url=p.gallery_images[0] if p.gallery_images else None,
+                ))
 
-    # Fetch upcoming projects (now a simple list of strings)
-    resolved_upcoming = city.upcoming_projects_list or []
+        # Fetch upcoming projects (now a simple list of strings)
+        resolved_upcoming = city.upcoming_projects_list or []
 
-    # Construct complete response
-    response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
-    response_data.landmarks = landmarks
-    response_data.top_landmarks_to_invest = top_investment_landmarks
-    response_data.top_developed_projects = resolved_projects
-    response_data.upcoming_projects_list = resolved_upcoming
-    
-    # Fetch Market Intelligence for deeper insights (Maps, Investment Landmarks)
-    # We find the main city landmark first
-    city_landmark = await Landmark.find_one(Landmark.name == city.name, Landmark.city_id == city.id)
-    if city_landmark:
-        intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == city_landmark.id)
-        if intel:
-            response_data.investment_landmarks = intel.investment_landmarks
-            response_data.map_landmarks = intel.map_landmarks
-    
-    return response_data
+        # Construct complete response
+        response_data = CityPublicDetailsResponse.model_validate(city.model_dump())
+        response_data.landmarks = landmarks
+        response_data.top_landmarks_to_invest = top_investment_landmarks
+        response_data.top_developed_projects = resolved_projects
+        response_data.upcoming_projects_list = resolved_upcoming
+        
+        # Fetch Market Intelligence for deeper insights (Maps, Investment Landmarks)
+        # We find the main city landmark first
+        # Use regex for case-insensitive name match
+        city_landmark = await Landmark.find_one(
+            {"name": {"$regex": f"^{city.name}$", "$options": "i"}},
+            Landmark.city_id == city.id
+        )
+        if city_landmark:
+            intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == city_landmark.id)
+            if intel:
+                response_data.investment_landmarks = intel.investment_landmarks or []
+                response_data.map_landmarks = intel.map_landmarks or []
+        
+        # FALLBACK: If map_landmarks is still empty, populate from the city's landmarks
+        if not response_data.map_landmarks:
+            # If 'landmarks' list is empty, try fetching all landmarks for this city_id
+            target_lms = landmarks if landmarks else await Landmark.find(Landmark.city_id == city.id).to_list()
+            
+            if target_lms:
+                map_items = []
+                for lm in target_lms:
+                    # Extract raw coords for fallback
+                    lat, lon = lm.latitude, lm.longitude
+                    if not lat and lm.location and lm.location.coordinates:
+                        lon, lat = lm.location.coordinates # GeoJSON is [lng, lat]
+                    
+                    map_items.append({
+                        "id": str(lm.id),
+                        "name": lm.name,
+                        "latitude": lat,
+                        "longitude": lon,
+                        "location": lm.location.model_dump() if (lm.location and hasattr(lm.location, "model_dump")) else lm.location,
+                        "avg_plot_price": str(lm.avg_plot_price) if lm.avg_plot_price else "0",
+                        "price_trend": "stable"
+                    })
+                response_data.map_landmarks = map_items
+        
+        return response_data
+    except Exception as e:
+        logger.error(f"Error fetching city detail for slug '{slug}': {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.get(
     "/landmarks",
@@ -359,9 +396,8 @@ async def get_landmarks(
             
         data["nearby_projects"] = nearby_projects
 
-        # 2. Resolve Upcoming Projects
-        # Logic: Both manual IDs and field-based matching (landmark_id)
-        # We don't filter by status or hidden here as per user request
+        # 2. Resolve Upcoming Projects (Projects + Manual Highlights)
+        # Priority 1: Projects linked via landmark_id or manual IDs
         upcoming_via_field = await Project.find(Project.landmark_id == landmark.id).to_list()
         
         manual_ids = landmark.upcoming_project_ids or []
@@ -372,29 +408,54 @@ async def get_landmarks(
         if remaining_ids:
             upcoming_manual = await Project.find(In(Project.id, remaining_ids)).to_list()
             
-        all_upcoming = upcoming_via_field + upcoming_manual
+        all_upcoming_projects = upcoming_via_field + upcoming_manual
         from app.utils.media import public_image_url
-        data["upcoming_projects_list"] = [
+        
+        # Convert projects to the unified "UpcomingHighlight" structure
+        resolved_upcoming = [
             {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "min_price": p.min_price,
-                "max_price": p.max_price,
-                "property_type": getattr(p, "property_type", None),
-                "status": getattr(p, "status", None),
-                "gallery_images": [public_image_url(img) for img in p.gallery_images] if p.gallery_images else [],
+                "title": p.name,
+                "detail": getattr(p, "property_type", "Upcoming Project"),
+                "icon_url": public_image_url(p.gallery_images[0]) if p.gallery_images else None,
+                "project_id": str(p.id)
             }
-            for p in all_upcoming
+            for p in all_upcoming_projects
         ]
 
+        # Priority 2: Manual Infrastructure Highlights (the cards)
+        # We append these to the project list
+        if landmark.upcoming_projects_list:
+            for highlight in landmark.upcoming_projects_list:
+                # Handle both dict and object formats
+                h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
+                resolved_upcoming.append({
+                    "title": h_dict.get("title"),
+                    "detail": h_dict.get("description") or h_dict.get("detail"),
+                    "icon_url": h_dict.get("icon_url"),
+                    "is_highlight": True
+                })
+
+        data["upcoming_projects"] = resolved_upcoming
 
 
-        # 3. Resolve Nearby Landmarks (Explicit ID list)
+
+        # 3. Resolve Nearby Landmarks (Explicit ID list + Manual Highlights)
         nearby_landmarks = []
         if landmark.nearby_landmarks_ids:
             fetched_nearby = await Landmark.find(In(Landmark.id, landmark.nearby_landmarks_ids)).to_list()
-            nearby_landmarks = [l.model_dump() for l in fetched_nearby]
+            nearby_landmarks = [LandmarkSummary.model_validate(l.model_dump()) for l in fetched_nearby]
+        
+        # Append manual highlights
+        if landmark.nearby_landmarks_list:
+            for highlight in landmark.nearby_landmarks_list:
+                h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
+                nearby_landmarks.append(LandmarkSummary(
+                    title=h_dict.get("title"),
+                    name=h_dict.get("title"), # For compatibility
+                    description=h_dict.get("description"),
+                    icon_url=h_dict.get("icon_url"),
+                    is_highlight=True
+                ))
         data["nearby_landmarks"] = nearby_landmarks
         
         # Validate and return

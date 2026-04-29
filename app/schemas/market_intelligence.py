@@ -40,6 +40,7 @@ class UpcomingDevelopmentItem(BaseModel):
     """Single upcoming development project with details."""
     title: str
     detail: Optional[str] = None
+    icon_url: Optional[str] = None
 
 class MarketIntelligenceBase(BaseModel):
     landmark_id: UUID
@@ -227,9 +228,9 @@ class MarketIntelligenceDetailPublic(BaseModel):
         ...,
         description="Key amenities array of objects (name, icon_url).",
     )
-    upcoming_projects: List[str] = Field(
+    upcoming_projects: List[UpcomingDevelopmentItem] = Field(
         ...,
-        description="Upcoming development / infra project lines.",
+        description="Upcoming development / infra project cards.",
     )
     investment_landmarks: List[Dict[str, Any]] = Field(
         ...,
