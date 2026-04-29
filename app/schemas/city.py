@@ -6,11 +6,13 @@ from pydantic import BaseModel, Field
 class PricePointSchema(BaseModel):
     year: int
     value: float
+    reason: Optional[str] = None
 
 class PredictionPointSchema(BaseModel):
     year: int
     value1: float
     value2: float
+    reason: Optional[str] = None
 
 class PoliticalAgendaSchema(BaseModel):
     mla: str

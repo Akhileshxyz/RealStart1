@@ -8,6 +8,7 @@ from beanie import Document, Indexed
 class PricePoint(BaseModel):
     year: int
     value: float
+    reason: Optional[str] = None
 
     @field_validator('value', mode='before')
     @classmethod
@@ -18,6 +19,7 @@ class PredictionPoint(BaseModel):
     year: int
     value1: float # e.g. City Prediction
     value2: float # e.g. State Prediction
+    reason: Optional[str] = None
 
     @field_validator('value1', 'value2', mode='before')
     @classmethod
