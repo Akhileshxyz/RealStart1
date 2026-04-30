@@ -24,14 +24,14 @@ async def list_all_projects_admin(
     """
     import traceback
     try:
-        query = {}
+        query = {"is_active": {"$ne": False}}
         if status:
-            query = {"status": status}
+            if status == ProjectStatus.DELETED:
+                query = {"status": ProjectStatus.DELETED}
+            else:
+                query = {"status": status, "is_active": {"$ne": False}}
         
-        if query:
-            projects = await Project.find(query).skip(skip).limit(limit).to_list()
-        else:
-            projects = await Project.find_all().skip(skip).limit(limit).to_list()
+        projects = await Project.find(query).skip(skip).limit(limit).to_list()
             
         # --- Enhancement: Populate Owner & Subscription Details ---
         developer_ids = list(set([p.developer_id for p in projects if p.developer_id]))
@@ -149,6 +149,26 @@ async def reject_project(
 
     return project
 
+@router.patch("/{project_id}/pending", response_model=ProjectResponse)
+async def move_to_pending_admin(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Move a project back to PENDING status.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project.status = ProjectStatus.PENDING
+    await project.save()
+
+    # Invalidate cache
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+
+    return project
+
 @router.patch("/{project_id}/feature", response_model=ProjectResponse)
 async def toggle_featured_project(
     project_id: UUID,
@@ -224,3 +244,48 @@ async def get_projects_selection_list(
         query["status"] = status
     
     return await Project.find(query).project(ProjectSelection).to_list()
+    
+@router.delete("/{project_id}", response_model=dict)
+async def delete_project_admin(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Delete a project listing (Soft Delete).
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Soft Delete
+    project.is_active = False
+    project.status = ProjectStatus.DELETED
+    await project.save()
+    
+    # Invalidate cache
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+    
+    return {"message": "Project deleted successfully"}
+
+@router.post("/bulk-delete", response_model=dict)
+async def bulk_delete_projects_admin(
+    project_ids: List[UUID] = Body(..., embed=True),
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Delete multiple projects (Soft Delete).
+    """
+    if not project_ids:
+        raise HTTPException(status_code=400, detail="No project IDs provided")
+        
+    # Update projects
+    await Project.find({"_id": {"$in": project_ids}}).update({"$set": {"is_active": False, "status": ProjectStatus.DELETED}})
+    
+    # Invalidate cache for all
+    # For bulk, we might just invalidate all or do one by one. 
+    # One by one is safer if slug is needed, but slower.
+    # Let's invalidate general project list cache if possible, or just individual ones.
+    for pid in project_ids:
+        await invalidate_project_cache(project_id=pid)
+        
+    return {"message": f"Successfully deleted {len(project_ids)} projects"}

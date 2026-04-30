@@ -9,8 +9,10 @@ class Reel(Document):
     video_url: str
     title: str
     description: Optional[str] = None
-    place: Optional[str] = None
+    landmark_id: Optional[UUID] = None
     uploaded_by: UUID
+    status: str = "READY"  # READY, PROCESSING, FAILED
+    processing_error: Optional[str] = None
     
     # Interaction counts for quick access (can be updated on like/comment)
     likes_count: int = 0

@@ -18,7 +18,7 @@ class LandmarkBulkDelete(BaseModel):
 
 class LandmarkPricePointSchema(BaseModel):
     year: int
-    value: Union[float, str] = 0
+    value: Any = 0
     reason: str = ""
 
     @field_validator("value", mode="before")
@@ -46,7 +46,7 @@ class UpcomingHighlightSchema(BaseModel):
 
 class LandmarkPredictionPointSchema(BaseModel):
     year: int
-    value: Union[float, str] = 0
+    value: Any = 0
     reason: str = ""
 
     @field_validator("value", mode="before")
@@ -82,7 +82,7 @@ class LandmarkSummary(BaseModel):
     is_highlight: bool = False
 
     images: List[str] = []
-    avg_plot_price: Union[float, str] = 0
+    avg_plot_price: Any = 0
     location: Optional[GeoJSONLocationSchema] = None
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -118,14 +118,14 @@ class LandmarkBase(BaseModel):
     images: List[str] = []
     
     # Financial Stats
-    avg_plot_price: Union[float, str] = 0
-    avg_apartment_price: Union[float, str] = 0
-    avg_price_per_sqft: Union[float, str] = 0
-    residential_rent_2bhk: str = ""
-    rental_yield: str = ""
+    avg_plot_price: Any = 0
+    avg_apartment_price: Any = 0
+    avg_price_per_sqft: Any = 0
+    residential_rent_2bhk: Any = ""
+    rental_yield: Any = ""
     risk_profile: RiskProfile = RiskProfile.MODERATE
 
-    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", mode="before")
+    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", "residential_rent_2bhk", "rental_yield", mode="before")
     @classmethod
     def parse_price_string(cls, v: Any) -> str:
         if isinstance(v, str):
@@ -196,7 +196,7 @@ class LandmarkUpdate(BaseModel):
     nearby_landmarks_list: Optional[List[UpcomingHighlightSchema]] = None
 
     # Re-use validator for Update too
-    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", mode="before")
+    @field_validator("avg_plot_price", "avg_apartment_price", "avg_price_per_sqft", "residential_rent_2bhk", "rental_yield", mode="before")
     @classmethod
     def parse_price_string(cls, v: Any) -> Optional[str]:
         if v is None:

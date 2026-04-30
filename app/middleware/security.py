@@ -32,7 +32,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     """Limit request body size to prevent DoS attacks"""
 
-    def __init__(self, app, max_size: int = 10_000_000):  # 10MB default
+    def __init__(self, app, max_size: int = 209_715_200):  # 200MB default fallback
         super().__init__(app)
         self.max_size = max_size
 

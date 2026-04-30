@@ -208,6 +208,69 @@ async def list_public_landmarks(
     return results or []
 
 
+@router.get("/compare")
+async def get_landmark_comparison(base_id: UUID, target_id: UUID) -> Any:
+    """
+    Compare two landmarks side-by-side.
+    """
+    base = await Landmark.get(base_id)
+    target = await Landmark.get(target_id)
+    
+    if not base or not target:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or both landmarks not found"
+        )
+
+    # Process base
+    base_projects = await _get_upcoming_projects(base.id, base.upcoming_project_ids or [])
+    # Process target
+    target_projects = await _get_upcoming_projects(target.id, target.upcoming_project_ids or [])
+
+    # Helper to map Landmark to Response
+    def map_to_response(lm, projects):
+        return LandmarkPublicResponse(
+            id=lm.id,
+            name=lm.name,
+            city=sanitize_str(lm.city),
+            city_id=lm.city_id,
+            zone=sanitize_str(lm.zone),
+            description=lm.description,
+            hero_desc=lm.hero_desc,
+            image_url=public_image_url(lm.images[0]) if lm.images else None,
+            images=[public_image_url(img) for img in lm.images],
+            avg_plot_price=str(lm.avg_plot_price) if lm.avg_plot_price else "0",
+            avg_apartment_price=str(lm.avg_apartment_price) if lm.avg_apartment_price else "0",
+            avg_price_per_sqft=str(lm.avg_price_per_sqft) if lm.avg_price_per_sqft else "0",
+            residential_rent_2bhk=str(lm.residential_rent_2bhk) if lm.residential_rent_2bhk else "0",
+            rental_yield=str(lm.rental_yield) if lm.rental_yield else "0",
+            price_trend=lm.price_trend,
+            price_trend_3m=lm.price_trend_3m,
+            risk_profile=lm.risk_profile.value if hasattr(lm.risk_profile, "value") else str(lm.risk_profile),
+            price_growth=[pg.model_dump() if hasattr(pg, "model_dump") else pg for pg in (lm.price_growth or [])],
+            price_prediction=[pp.model_dump() if hasattr(pp, "model_dump") else pp for pp in (lm.price_prediction or [])],
+            total_projects=lm.total_projects or 0,
+            active_layouts_count=lm.active_layouts_count or 0,
+            rera_projects_count=lm.rera_projects_count or 0,
+            upcoming_project_ids=lm.upcoming_project_ids or [],
+            upcoming_projects_list=projects,
+            upcoming_developments=[ud.model_dump() if hasattr(ud, "model_dump") else ud for ud in (lm.upcoming_projects_list or [])],
+            nearby_projects=[{"id": str(pid)} for pid in (lm.nearby_project_ids or [])],
+            nearby_landmarks=[], # Simplify comparison view
+            top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (lm.nearby_landmarks_list or [])],
+            amenities=lm.amenities or [],
+            nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (lm.nearby_amenities or [])],
+            latitude=lm.latitude,
+            longitude=lm.longitude,
+            location=lm.location.model_dump() if lm.location else None
+        )
+
+    return {
+        "base": map_to_response(base, base_projects),
+        "target": map_to_response(target, target_projects)
+    }
+
 @router.get("/{landmark_id}", response_model=LandmarkPublicResponse)
 async def get_public_landmark(landmark_id: UUID) -> Any:
     """

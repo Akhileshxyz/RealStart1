@@ -1,12 +1,12 @@
 from datetime import datetime
 from uuid import UUID
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 class ReelBase(BaseModel):
     title: str
-    description: Optional[str] = None
-    place: Optional[str] = None
+    description: Optional[Any] = None
+    place: Optional[Any] = None
     video_url: str
 
 class ReelCreate(ReelBase):
@@ -22,12 +22,23 @@ class ReelResponse(ReelBase):
     uploaded_by: UUID
     likes_count: int
     comments_count: int
-    is_liked: Optional[bool] = False
-    is_saved: Optional[bool] = False
+    status: str = "READY"
+    processing_error: Optional[str] = None
+    views_count: int = 0
+    shares_count: int = 0
+    is_active: bool = True
+    landmark_id: Optional[UUID] = None
+    landmark_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedReelResponse(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    data: List[ReelResponse]
 
 class CommentCreate(BaseModel):
     content: str

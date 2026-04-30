@@ -146,6 +146,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # (CORS middleware moved below to be outermost)
 
 # Security & Size Middleware
+print(f"DEBUG: MAX_FILE_SIZE is {settings.MAX_FILE_SIZE}")
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware, max_size=settings.MAX_FILE_SIZE)
 
