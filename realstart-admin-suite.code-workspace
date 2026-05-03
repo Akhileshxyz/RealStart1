@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../realstart-admin-suite"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../realstart-fe"
+		}
+	],
+	"settings": {}
+}

@@ -52,8 +52,25 @@ async def approve_request(
     if req.request_type == RequestType.UPDATE:
         # Apply update
         update_data = req.data
-        update_data["updated_at"] = datetime.now(timezone.utc)
-        await project.set(update_data)
+        if update_data:
+            # Track old slug for cache invalidation
+            old_slug = project.slug
+            
+            # Update data with current timestamp
+            update_data["updated_at"] = datetime.utcnow()
+            
+            # Use direct $set update for maximum reliability
+            await project.update({"$set": update_data})
+            
+            # Refresh project object from DB to ensure it has latest state
+            project = await Project.get(project.id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project lost during update")
+            
+            # Invalidate cache
+            await invalidate_project_cache(project_id=project.id, slug=old_slug)
+            if project.slug != old_slug:
+                await invalidate_project_cache(slug=project.slug)
         
     elif req.request_type == RequestType.DELETE:
         # Delete project

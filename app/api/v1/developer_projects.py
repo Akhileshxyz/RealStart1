@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.project import Project, ProjectStatus
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate, ProjectAnalytics
 from app.services.permission_service import PermissionService
 from app.core.permissions import TeamProjectsPermission
 
@@ -141,7 +141,8 @@ async def get_project(
         project.sold_units = project.total_units - project.available_units
 
     p_resp = ProjectResponse.model_validate(project.model_dump())
-    p_resp.analytics = analytics_data
+    if analytics_data:
+        p_resp.analytics = ProjectAnalytics.model_validate(analytics_data)
     
     return p_resp
 
@@ -168,8 +169,19 @@ async def update_project(
         # Create Change Request
         from app.models.change_request import ProjectChangeRequest, RequestType
         
+        # Get Developer Name
+        dev_name = current_user.full_name
+        if current_user.role == UserRole.MANAGER:
+            from app.models.team import DeveloperTeamMember
+            member = await DeveloperTeamMember.find_one(DeveloperTeamMember.user_id == current_user.id)
+            if member:
+                # Use company name if available, otherwise developer name
+                dev_name = member.developer_id # Placeholder for real name if needed, but let's use user name for now
+        
         request = ProjectChangeRequest(
             project_id=project.id,
+            project_name=project.name,
+            developer_name=dev_name or "Unknown Developer",
             request_type=RequestType.UPDATE,
             data=project_in.model_dump(exclude_unset=True)
         )
@@ -186,13 +198,27 @@ async def update_project(
              if project.status == ProjectStatus.REJECTED:
                  update_data["status"] = ProjectStatus.PENDING
         
-        await project.set(update_data)
-        project.updated_at = datetime.utcnow()
-        await project.save()
+        # Track old slug for cache invalidation
+        old_slug = project.slug
         
-        # Invalidate cache since status might have changed
+        # Update timestamp
+        update_data["updated_at"] = datetime.utcnow()
+        
+        # Use direct $set update for maximum reliability
+        await project.update({"$set": update_data})
+        
+        # Refresh project object from DB
+        project = await Project.get(project.id)
+        if not project:
+             raise HTTPException(status_code=404, detail="Project lost during update")
+        
+        # Invalidate cache
         from app.utils.cache_invalidation import invalidate_project_cache
-        await invalidate_project_cache(project_id=project.id, slug=project.slug)
+        await invalidate_project_cache(project_id=project.id, slug=old_slug)
+        
+        # If slug changed, invalidate new slug too
+        if project.slug != old_slug:
+            await invalidate_project_cache(slug=project.slug)
         
         return ProjectResponse.model_validate(project.model_dump())
 
