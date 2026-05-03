@@ -100,7 +100,9 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
     resolved_upcoming = [
         {
             "title": p.name,
+            "title_kn": getattr(p, "name_kn", None),
             "detail": getattr(p, "property_type", "Upcoming Project"),
+            "detail_kn": "ಮುಂಬರುವ ಯೋಜನೆ" if getattr(p, "property_type", None) else None,
             "icon_url": public_image_url(p.gallery_images[0]) if p.gallery_images else None,
             "project_id": str(p.id)
         }
@@ -113,7 +115,9 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
             h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
             resolved_upcoming.append({
                 "title": h_dict.get("title"),
+                "title_kn": h_dict.get("title_kn"),
                 "detail": h_dict.get("description") or h_dict.get("detail"),
+                "detail_kn": h_dict.get("description_kn") or h_dict.get("detail_kn"),
                 "icon_url": h_dict.get("icon_url"),
                 "is_highlight": True
             })
@@ -146,8 +150,11 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
             h_dict = highlight if isinstance(highlight, dict) else highlight.model_dump()
             nearby_landmarks.append(LandmarkSummary(
                 title=h_dict.get("title"),
+                title_kn=h_dict.get("title_kn"),
                 name=h_dict.get("title"),
+                name_kn=h_dict.get("title_kn"),
                 description=h_dict.get("description"),
+                description_kn=h_dict.get("description_kn"),
                 icon_url=h_dict.get("icon_url"),
                 is_highlight=True
             ))

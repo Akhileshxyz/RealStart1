@@ -20,6 +20,7 @@ class LandmarkPricePoint(BaseModel):
     year: int
     value: Union[float, str] = 0
     reason: str = ""
+    reason_kn: Optional[str] = None
 
     @field_validator("value", mode="before")
     @classmethod
@@ -32,7 +33,9 @@ class LandmarkPricePoint(BaseModel):
 
 class UpcomingHighlight(BaseModel):
     title: str
+    title_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     icon_url: Optional[str] = None
 
     @field_validator("title", mode="before")
@@ -56,6 +59,7 @@ class LandmarkPredictionPoint(BaseModel):
     year: int
     value: Union[float, str] = 0
     reason: str = ""
+    reason_kn: Optional[str] = None
 
     @field_validator("value", mode="before")
     @classmethod
@@ -75,10 +79,13 @@ class LandmarkPredictionPoint(BaseModel):
 
 class Landmark(Document):
     id: UUID = Field(default_factory=uuid4)
-    name: str 
-    city_id: UUID 
+    name: str = Indexed()
+    name_kn: Optional[str] = None
+    city_id: UUID = Indexed()
     hero_desc: Optional[str] = None
+    hero_desc_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     city: Optional[str] = None
     
     # Location
@@ -117,7 +124,9 @@ class Landmark(Document):
     upcoming_project_ids: List[UUID] = []
     nearby_project_ids: List[UUID] = []
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    nearby_amenities_kn: Optional[List[str]] = []
     amenities: List[str] = []
+    amenities_kn: List[str] = []
     upcoming_projects_list: List[UpcomingHighlight] = []
     nearby_landmarks_list: List[UpcomingHighlight] = []
 

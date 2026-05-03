@@ -9,6 +9,7 @@ class PricePoint(BaseModel):
     year: int
     value: float
     reason: Optional[str] = None
+    reason_kn: Optional[str] = None
 
     @field_validator('value', mode='before')
     @classmethod
@@ -20,6 +21,7 @@ class PredictionPoint(BaseModel):
     value1: float # e.g. City Prediction
     value2: float # e.g. State Prediction
     reason: Optional[str] = None
+    reason_kn: Optional[str] = None
 
     @field_validator('value1', 'value2', mode='before')
     @classmethod
@@ -28,11 +30,14 @@ class PredictionPoint(BaseModel):
 
 class PoliticalAgenda(BaseModel):
     mla: str
+    mla_kn: Optional[str] = None
     mp: str
+    mp_kn: Optional[str] = None
 
 class City(Document):
     id: UUID = Field(default_factory=uuid4)
     name: str = Indexed(unique=True) 
+    name_kn: Optional[str] = None
     slug: str = Indexed(unique=True) 
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -58,7 +63,9 @@ class City(Document):
     
     # Other Descriptions
     feature_description: Optional[str] = None # One-liner highlights
+    feature_description_kn: Optional[str] = None
     city_description: Optional[str] = None # Deep full city overview
+    city_description_kn: Optional[str] = None
 
     # Chart Data - Historical
     price_growth_history: List[PricePoint] = [] 
@@ -72,15 +79,19 @@ class City(Document):
     # Politics & Policy
     political_infrastructure_agenda: PoliticalAgenda = Field(default_factory=lambda: PoliticalAgenda(mla="", mp=""))
     key_policies: List[str] = []
+    key_policies_kn: List[str] = []
 
     # System fields
     landmarks_id_list: List[UUID] = [] 
     top_landmarks_to_invest: List[UUID] = []
     upcoming_projects_list: List[str] = [] # Manual string list
+    upcoming_projects_list_kn: List[str] = []
     
     # Market Intelligence Text Lists
     amenities: List[str] = []
+    amenities_kn: List[str] = []
     market_upcoming_projects: List[str] = []
+    market_upcoming_projects_kn: List[str] = []
     
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
