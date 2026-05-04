@@ -38,6 +38,7 @@ class LandmarkPublicResponse(BaseModel):
     family_living: Optional[str] = None
     traffic: Optional[str] = None
     social_infra: Optional[str] = None
+    appreciation_potential_5yr: Optional[str] = None
     price_growth: List[Dict[str, Any]] = []
     price_prediction: List[Dict[str, Any]] = []
     total_projects: int = 0

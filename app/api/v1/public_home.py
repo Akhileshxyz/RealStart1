@@ -17,6 +17,7 @@ from app.models.city import City
 from app.models.landmark import Landmark
 from app.models.hero_banner import HeroBanner
 from beanie.operators import In
+from app.utils.parsers import parse_price_string
 from app.schemas.city import (
     CityResponse, 
     CityPublicDetailsResponse, 
@@ -311,10 +312,33 @@ async def get_city_by_slug(slug: str) -> Any:
             Landmark.city_id == city.id
         )
         if city_landmark:
+            # Sync box stats from main city landmark if missing on city model
+            if not response_data.avg_residential_plot_price:
+                # avg_plot_price is the residential field in Landmark model
+                response_data.avg_residential_plot_price = parse_price_string(city_landmark.avg_plot_price)
+                if not response_data.avg_residential_plot_price and city_landmark.avg_price_per_sqft:
+                    response_data.avg_residential_plot_price = parse_price_string(city_landmark.avg_price_per_sqft)
+
+            if not response_data.avg_commercial_plot_price:
+                response_data.avg_commercial_plot_price = parse_price_string(city_landmark.avg_commercial_plot_price)
+
             intel = await MarketIntelligence.find_one(MarketIntelligence.landmark_id == city_landmark.id)
             if intel:
                 response_data.investment_landmarks = intel.investment_landmarks or []
                 response_data.map_landmarks = intel.map_landmarks or []
+                
+                # Further sync from intel if available
+                if intel.box_content:
+                    # Map box_content values if root values are still default
+                    if not response_data.avg_rental_2bhk:
+                        response_data.avg_rental_2bhk = str(intel.box_content.avg_rental_2bhk) if intel.box_content.avg_rental_2bhk else response_data.avg_rental_2bhk
+                    if not response_data.economic_output:
+                        response_data.economic_output = intel.box_content.economic_output or response_data.economic_output
+                    if not response_data.population:
+                        response_data.population = intel.box_content.population or response_data.population
+                    if not response_data.appreciation_potential_5yr:
+                        response_data.appreciation_potential_5yr = intel.box_content.appreciation_potential_5yr or response_data.appreciation_potential_5yr
+
         
         # FALLBACK: If map_landmarks is still empty, populate from the city's landmarks
         if not response_data.map_landmarks:

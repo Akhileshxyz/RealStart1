@@ -112,6 +112,7 @@ class Landmark(Document):
     family_living: Optional[str] = None
     traffic: Optional[str] = None
     social_infra: Optional[str] = None
+    appreciation_potential_5yr: Optional[str] = None
 
     
     price_trend: Optional[str] = None  # "rising", "stable", "falling"
