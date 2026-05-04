@@ -8,6 +8,7 @@ class LandmarkSelection(BaseModel):
     """Minimal schema for populating multi-select dropdowns"""
     id: UUID
     name: str
+    name_kn: Optional[str] = None
     city_id: Optional[UUID] = None
     zone: Optional[str] = None
 
@@ -20,6 +21,7 @@ class LandmarkPricePointSchema(BaseModel):
     year: int
     value: Any = 0
     reason: str = ""
+    reason_kn: Optional[str] = None
 
     @field_validator("value", mode="before")
     @classmethod
@@ -32,7 +34,9 @@ class LandmarkPricePointSchema(BaseModel):
 
 class UpcomingHighlightSchema(BaseModel):
     title: str
+    title_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     icon_url: Optional[str] = None
 
     @model_validator(mode="before")
@@ -48,6 +52,7 @@ class LandmarkPredictionPointSchema(BaseModel):
     year: int
     value: Any = 0
     reason: str = ""
+    reason_kn: Optional[str] = None
 
     @field_validator("value", mode="before")
     @classmethod
@@ -73,11 +78,14 @@ class LandmarkSummary(BaseModel):
     """Reference summary for nested lists"""
     id: Optional[UUID] = None
     name: Optional[str] = None
+    name_kn: Optional[str] = None
     city_id: Optional[UUID] = None
     
     # Unified fields for highlights
     title: Optional[str] = None
+    title_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     icon_url: Optional[str] = None
     is_highlight: bool = False
 
@@ -94,7 +102,9 @@ class UpcomingProjectSummary(BaseModel):
     
     # Unified fields for highlights & projects
     title: Optional[str] = None
+    title_kn: Optional[str] = None
     detail: Optional[str] = None
+    detail_kn: Optional[str] = None
     icon_url: Optional[str] = None
     is_highlight: bool = False
     project_id: Optional[str] = None
@@ -109,9 +119,12 @@ class UpcomingProjectSummary(BaseModel):
 
 class LandmarkBase(BaseModel):
     name: str
+    name_kn: Optional[str] = None
     city_id: UUID
     hero_desc: Optional[str] = None
+    hero_desc_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     location: Optional[GeoJSONLocationSchema] = None
     zone: Optional[str] = None
     
@@ -150,7 +163,9 @@ class LandmarkBase(BaseModel):
     upcoming_projects: List[UpcomingProjectSummary] = []
     nearby_projects: List[UpcomingProjectSummary] = []
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    nearby_amenities_kn: Optional[List[str]] = []
     amenities: List[str] = []
+    amenities_kn: List[str] = []
     upcoming_projects_list: List[UpcomingHighlightSchema] = []
 
     # Relationship IDs (For Input/Storage)
@@ -163,9 +178,12 @@ class LandmarkCreate(LandmarkBase):
 
 class LandmarkUpdate(BaseModel):
     name: Optional[str] = None
+    name_kn: Optional[str] = None
     city_id: Optional[UUID] = None
     hero_desc: Optional[str] = None
+    hero_desc_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     location: Optional[GeoJSONLocationSchema] = None
     zone: Optional[str] = None
     images: Optional[List[str]] = None
@@ -191,7 +209,9 @@ class LandmarkUpdate(BaseModel):
     upcoming_project_ids: Optional[List[UUID]] = None
     nearby_project_ids: Optional[List[UUID]] = None
     nearby_amenities: Optional[Union[List[str], Dict[str, Any]]] = None
+    nearby_amenities_kn: Optional[List[str]] = None
     amenities: Optional[List[str]] = None
+    amenities_kn: Optional[List[str]] = None
     upcoming_projects_list: Optional[List[UpcomingHighlightSchema]] = None
     nearby_landmarks_list: Optional[List[UpcomingHighlightSchema]] = None
 
