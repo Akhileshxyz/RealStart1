@@ -19,11 +19,18 @@ async def list_change_requests(
     """
     List change requests. Filter by status if provided.
     """
-    if status:
-        requests = await ProjectChangeRequest.find(ProjectChangeRequest.status == status).sort("-created_at").to_list()
-    else:
-        requests = await ProjectChangeRequest.find_all().sort("-created_at").to_list()
-    return requests
+    import traceback
+    try:
+        if status:
+            requests = await ProjectChangeRequest.find(ProjectChangeRequest.status == status).sort("-created_at").to_list()
+        else:
+            requests = await ProjectChangeRequest.find_all().sort("-created_at").to_list()
+        return requests
+    except Exception as e:
+        with open("c:\\laragon\\www\\realstart-be\\logs\\debug_error.log", "a") as f:
+            f.write(f"\n--- Change Requests Error {datetime.now()} ---\n")
+            f.write(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{request_id}/approve", response_model=ChangeRequestResponse)
 async def approve_request(
@@ -51,7 +58,14 @@ async def approve_request(
     # Apply Changes
     if req.request_type == RequestType.UPDATE:
         # Apply update
-        update_data = req.data
+        from app.schemas.project import ProjectUpdate
+        
+        # Re-validate and convert types (strings back to UUID/datetime)
+        try:
+            update_data = ProjectUpdate.model_validate(req.data).model_dump(exclude_unset=True)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid data in change request: {str(e)}")
+
         if update_data:
             # Track old slug for cache invalidation
             old_slug = project.slug

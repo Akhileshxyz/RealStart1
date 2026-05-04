@@ -164,26 +164,27 @@ async def update_project(
     # Access Control Enforced via Service
     await PermissionService.enforce(current_user, TeamProjectsPermission.EDIT_PROJECTS.value, developer_id_scope=project.developer_id)
 
-    # Logic
-    if project.status == ProjectStatus.APPROVED and current_user.role in [UserRole.DEVELOPER, UserRole.MANAGER]: # Managers might edit too
+    # Logic: If project is already approved, non-admin edits must create a change request
+    is_admin = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    
+    if project.status == ProjectStatus.APPROVED and not is_admin:
         # Create Change Request
         from app.models.change_request import ProjectChangeRequest, RequestType
         
         # Get Developer Name
         dev_name = current_user.full_name
-        if current_user.role == UserRole.MANAGER:
+        if current_user.role != UserRole.DEVELOPER:
             from app.models.team import DeveloperTeamMember
             member = await DeveloperTeamMember.find_one(DeveloperTeamMember.user_id == current_user.id)
             if member:
-                # Use company name if available, otherwise developer name
-                dev_name = member.developer_id # Placeholder for real name if needed, but let's use user name for now
+                 dev_name = f"{current_user.full_name} (Team Member)"
         
         request = ProjectChangeRequest(
             project_id=project.id,
             project_name=project.name,
             developer_name=dev_name or "Unknown Developer",
             request_type=RequestType.UPDATE,
-            data=project_in.model_dump(exclude_unset=True)
+            data=project_in.model_dump(exclude_unset=True, mode='json')
         )
         await request.insert()
         return {"message": "Update request submitted for approval", "request_id": request.id}

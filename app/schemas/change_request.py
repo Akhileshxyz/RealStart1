@@ -7,8 +7,8 @@ from app.models.change_request import RequestStatus, RequestType
 class ChangeRequestResponse(BaseModel):
     id: UUID
     project_id: UUID
-    project_name: str
-    developer_name: str
+    project_name: Optional[str] = None
+    developer_name: Optional[str] = None
     request_type: RequestType
     data: Optional[Dict[str, Any]] = None
     status: RequestStatus

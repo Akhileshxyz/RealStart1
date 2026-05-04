@@ -17,8 +17,8 @@ class RequestType(str, Enum):
 class ProjectChangeRequest(Document):
     id: UUID = Field(default_factory=uuid4)
     project_id: UUID
-    project_name: str
-    developer_name: str
+    project_name: Optional[str] = None
+    developer_name: Optional[str] = None
     request_type: RequestType
     data: Optional[Dict[str, Any]] = None  # For UPDATE requests
     status: RequestStatus = RequestStatus.PENDING
