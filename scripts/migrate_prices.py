@@ -67,7 +67,7 @@ async def main():
         document_models=[Landmark, City, Project, MarketIntelligence, Society]
     )
     
-    await migrate_collection(client, Landmark, ['avg_plot_price', 'avg_apartment_price', 'avg_price_per_sqft'])
+    await migrate_collection(client, Landmark, ['avg_plot_price', 'avg_commercial_plot_price', 'avg_price_per_sqft'])
     await migrate_collection(client, City, ['avg_appreciation_start_value', 'avg_appreciation_end_value', 
                                     'avg_commercial_plot_price', 'avg_residential_plot_price'])
     await migrate_collection(client, Project, ['min_price', 'max_price'])

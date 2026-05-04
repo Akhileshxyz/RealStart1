@@ -27,12 +27,14 @@ class LandmarkRichResponse(BaseModel):
     """Detailed Landmark info for summary view in city details"""
     id: UUID
     name: str
+    name_kn: Optional[str] = None
     image_url: Optional[str] = None
     location: Optional[Any] = None # GeoJSON coordinates
     amenities: Optional[List[str]] = [] # nearby_amenities
+    amenities_kn: Optional[List[str]] = []
     
     avg_plot_price: Optional[Union[float, str]] = 0
-    avg_apartment_price: Optional[Union[float, str]] = 0
+    avg_commercial_plot_price: Optional[Union[float, str]] = 0
     avg_price_per_sqft: Optional[Union[float, str]] = 0
     residential_rent_2bhk: Optional[str] = ""
     rental_yield: Optional[str] = "" 

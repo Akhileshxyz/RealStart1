@@ -52,7 +52,7 @@ All price fields accept string format with units (no conversion done):
 | Field | Type | Example Input | Description |
 |-------|------|---------------|-------------|
 | `avg_plot_price` | string | `"60 L"` or `"1.5 Cr"` | Average residential plot price |
-| `avg_apartment_price` | string | `"80 L"` | Average apartment price |
+| `avg_commercial_plot_price` | string | `"80 L"` | Average commercial plot price |
 | `avg_price_per_sqft` | string | `"5500"` | Price per square feet |
 | `residential_rent_2bhk` | string | `"₹20,000"` | 2 BHK monthly rent |
 | `rental_yield` | string | `"4.5%"` | Rental yield percentage |
@@ -272,7 +272,7 @@ POST /api/v1/admin/landmarks/
   "description": "The Near Doddaballapura Bus Stand area is the heartbeat of the town.",
   "zone": "North Bengaluru",
   "avg_plot_price": "60 L",
-  "avg_apartment_price": "80 L",
+  "avg_commercial_plot_price": "80 L",
   "residential_rent_2bhk": "₹20,000",
   "rental_yield": "4.5%",
   "price_trend": "rising",

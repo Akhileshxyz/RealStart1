@@ -15,21 +15,29 @@ router = APIRouter()
 class LandmarkPublicResponse(BaseModel):
     id: UUID
     name: str
+    name_kn: Optional[str] = None
     city: Optional[str] = None
     city_id: Optional[UUID] = None
     zone: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     hero_desc: Optional[str] = None
+    hero_desc_kn: Optional[str] = None
     image_url: Optional[str] = None
     images: List[str] = []
     avg_plot_price: str = ""
-    avg_apartment_price: str = ""
+    avg_commercial_plot_price: str = ""
     avg_price_per_sqft: str = ""
     residential_rent_2bhk: str = ""
     rental_yield: str = ""
     price_trend: Optional[str] = None
     price_trend_3m: Optional[str] = None
     risk_profile: str = "moderate"
+    rental_strength: Optional[str] = None
+    future_growth: Optional[str] = None
+    family_living: Optional[str] = None
+    traffic: Optional[str] = None
+    social_infra: Optional[str] = None
     price_growth: List[Dict[str, Any]] = []
     price_prediction: List[Dict[str, Any]] = []
     total_projects: int = 0
@@ -42,7 +50,9 @@ class LandmarkPublicResponse(BaseModel):
     nearby_landmarks: List[Dict[str, Any]] = []
     top_investment_spots: List[Dict[str, Any]] = [] # Manual highlights
     amenities: List[str] = []
+    amenities_kn: List[str] = []
     nearby_amenities: List[Dict[str, Any]] = []
+    nearby_amenities_kn: List[str] = []
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location: Optional[Dict[str, Any]] = None
@@ -168,15 +178,18 @@ async def list_public_landmarks(
             item = LandmarkPublicResponse(
                 id=lm.id,
                 name=lm.name,
+                name_kn=lm.name_kn,
                 city=sanitize_str(lm.city),
                 city_id=lm.city_id,
                 zone=sanitize_str(lm.zone),
                 description=lm.description,
+                description_kn=lm.description_kn,
                 hero_desc=lm.hero_desc,
+                hero_desc_kn=lm.hero_desc_kn,
                 image_url=public_image_url(lm.images[0]) if lm.images else None,
                 images=[public_image_url(img) for img in lm.images],
                 avg_plot_price=str(lm.avg_plot_price) if lm.avg_plot_price else "0",
-                avg_apartment_price=str(lm.avg_apartment_price) if lm.avg_apartment_price else "0",
+                avg_commercial_plot_price=str(lm.avg_commercial_plot_price) if lm.avg_commercial_plot_price else "0",
                 avg_price_per_sqft=str(lm.avg_price_per_sqft) if lm.avg_price_per_sqft else "0",
                 residential_rent_2bhk=str(lm.residential_rent_2bhk) if lm.residential_rent_2bhk else "0",
                 rental_yield=str(lm.rental_yield) if lm.rental_yield else "0",
@@ -195,10 +208,17 @@ async def list_public_landmarks(
                 nearby_landmarks=real_nearby,
                 top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (lm.nearby_landmarks_list or [])],
                 amenities=lm.amenities or [],
+                amenities_kn=lm.amenities_kn or [],
                 nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (lm.nearby_amenities or [])],
+                nearby_amenities_kn=lm.nearby_amenities_kn or [],
                 latitude=lm.latitude,
                 longitude=lm.longitude,
                 location=lm.location.model_dump() if (lm.location and hasattr(lm.location, "model_dump")) else (lm.location if isinstance(lm.location, dict) else None),
+                rental_strength=lm.rental_strength,
+                future_growth=lm.future_growth,
+                family_living=lm.family_living,
+                traffic=lm.traffic,
+                social_infra=lm.social_infra,
             )
             results.append(item)
         except Exception as e:
@@ -233,15 +253,18 @@ async def get_landmark_comparison(base_id: UUID, target_id: UUID) -> Any:
         return LandmarkPublicResponse(
             id=lm.id,
             name=lm.name,
+            name_kn=lm.name_kn,
             city=sanitize_str(lm.city),
             city_id=lm.city_id,
             zone=sanitize_str(lm.zone),
             description=lm.description,
+            description_kn=lm.description_kn,
             hero_desc=lm.hero_desc,
+            hero_desc_kn=lm.hero_desc_kn,
             image_url=public_image_url(lm.images[0]) if lm.images else None,
             images=[public_image_url(img) for img in lm.images],
             avg_plot_price=str(lm.avg_plot_price) if lm.avg_plot_price else "0",
-            avg_apartment_price=str(lm.avg_apartment_price) if lm.avg_apartment_price else "0",
+            avg_commercial_plot_price=str(lm.avg_commercial_plot_price) if lm.avg_commercial_plot_price else "0",
             avg_price_per_sqft=str(lm.avg_price_per_sqft) if lm.avg_price_per_sqft else "0",
             residential_rent_2bhk=str(lm.residential_rent_2bhk) if lm.residential_rent_2bhk else "0",
             rental_yield=str(lm.rental_yield) if lm.rental_yield else "0",
@@ -260,10 +283,17 @@ async def get_landmark_comparison(base_id: UUID, target_id: UUID) -> Any:
             nearby_landmarks=[], # Simplify comparison view
             top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (lm.nearby_landmarks_list or [])],
             amenities=lm.amenities or [],
+            amenities_kn=lm.amenities_kn or [],
             nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (lm.nearby_amenities or [])],
+            nearby_amenities_kn=lm.nearby_amenities_kn or [],
             latitude=lm.latitude,
             longitude=lm.longitude,
-            location=lm.location.model_dump() if lm.location else None
+            location=lm.location.model_dump() if lm.location else None,
+            rental_strength=lm.rental_strength,
+            future_growth=lm.future_growth,
+            family_living=lm.family_living,
+            traffic=lm.traffic,
+            social_infra=lm.social_infra,
         )
 
     return {
@@ -312,15 +342,18 @@ async def get_public_landmark(landmark_id: UUID) -> Any:
     return LandmarkPublicResponse(
         id=landmark.id,
         name=landmark.name,
+        name_kn=landmark.name_kn,
         city=sanitize_str(landmark.city),
         city_id=landmark.city_id,
         zone=sanitize_str(landmark.zone),
         description=landmark.description,
+        description_kn=landmark.description_kn,
         hero_desc=landmark.hero_desc,
+        hero_desc_kn=landmark.hero_desc_kn,
         image_url=public_image_url(landmark.images[0]) if landmark.images else None,
         images=[public_image_url(img) for img in landmark.images],
         avg_plot_price=str(landmark.avg_plot_price) if landmark.avg_plot_price else "0",
-        avg_apartment_price=str(landmark.avg_apartment_price) if landmark.avg_apartment_price else "0",
+        avg_commercial_plot_price=str(landmark.avg_commercial_plot_price) if landmark.avg_commercial_plot_price else "0",
         avg_price_per_sqft=str(landmark.avg_price_per_sqft) if landmark.avg_price_per_sqft else "0",
         residential_rent_2bhk=str(landmark.residential_rent_2bhk) if landmark.residential_rent_2bhk else "0",
         rental_yield=str(landmark.rental_yield) if landmark.rental_yield else "0",
@@ -339,8 +372,15 @@ async def get_public_landmark(landmark_id: UUID) -> Any:
         nearby_landmarks=real_nearby,
         top_investment_spots=[uh.model_dump() if hasattr(uh, "model_dump") else uh for uh in (landmark.nearby_landmarks_list or [])],
         amenities=landmark.amenities or [],
+        amenities_kn=landmark.amenities_kn or [],
         nearby_amenities=[na.model_dump() if hasattr(na, "model_dump") else na for na in (landmark.nearby_amenities or [])],
+        nearby_amenities_kn=landmark.nearby_amenities_kn or [],
         latitude=landmark.latitude,
         longitude=landmark.longitude,
         location=landmark.location.model_dump() if (landmark.location and hasattr(landmark.location, "model_dump")) else (landmark.location if isinstance(landmark.location, dict) else None),
+        rental_strength=landmark.rental_strength,
+        future_growth=landmark.future_growth,
+        family_living=landmark.family_living,
+        traffic=landmark.traffic,
+        social_infra=landmark.social_infra,
     )

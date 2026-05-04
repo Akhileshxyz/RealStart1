@@ -166,16 +166,23 @@ async def _resolve_landmark_relationships(landmark: Landmark) -> dict:
 @router.get("/", response_model=PaginatedLandmarkResponse)
 async def list_all_landmarks(
     city_id: Optional[UUID] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=5000),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
-    List all landmarks, optionally filtered by city_id.
+    List all landmarks, optionally filtered by city_id or search query.
     """
     query = {}
     if city_id:
         query["city_id"] = city_id
+    
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"zone": {"$regex": search, "$options": "i"}}
+        ]
         
     total_count = await Landmark.find(query).count()
     landmarks = await Landmark.find(query).skip(skip).limit(limit).to_list()

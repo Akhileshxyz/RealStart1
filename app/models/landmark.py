@@ -100,11 +100,18 @@ class Landmark(Document):
     
     # Financial/Market Data
     avg_plot_price: Union[float, str] = 0
-    avg_apartment_price: Union[float, str] = 0
+    avg_commercial_plot_price: Union[float, str] = 0
     avg_price_per_sqft: Union[float, str] = 0
     residential_rent_2bhk: str = ""
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE
+    
+    # Area Ratings
+    rental_strength: Optional[str] = None
+    future_growth: Optional[str] = None
+    family_living: Optional[str] = None
+    traffic: Optional[str] = None
+    social_infra: Optional[str] = None
 
     
     price_trend: Optional[str] = None  # "rising", "stable", "falling"

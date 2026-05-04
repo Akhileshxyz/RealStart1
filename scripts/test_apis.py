@@ -3,7 +3,7 @@ import httpx
 from uuid import UUID
 
 async def test_apis():
-    async with httpx.AsyncClient(base_url="https://realstart.nandhitech.in/api/v1/locality") as client:
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000/api/v1/locality") as client:
         # 1. Get Cities
         print("--- GET /market-intelligence (Cities) ---")
         resp = await client.get("/market-intelligence")
