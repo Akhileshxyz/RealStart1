@@ -71,6 +71,7 @@ class FeaturedCityResponse(BaseModel):
     avg_commercial_plot_price: Optional[Union[float, str]] = None
     avg_rental_2bhk: Optional[str] = None
     avg_residential_plot_price: Optional[Union[float, str]] = None
+    city_gif: Optional[str] = None
 
 class FeaturedCitiesEnvelope(BaseModel):
     status: str = "success"
@@ -193,7 +194,8 @@ async def list_featured_cities(
             avg_appreciation_start_value=city.avg_appreciation_start_value,
             avg_commercial_plot_price=city.avg_commercial_plot_price,
             avg_rental_2bhk=city.avg_rental_2bhk,
-            avg_residential_plot_price=city.avg_residential_plot_price
+            avg_residential_plot_price=city.avg_residential_plot_price,
+            city_gif=city.city_gif
         )
         for city in cities
     ]

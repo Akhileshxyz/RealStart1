@@ -43,6 +43,7 @@ class City(Document):
     longitude: Optional[float] = None
     images: List[str] = [] 
     city_report_pdf: Optional[str] = None 
+    city_gif: Optional[str] = None 
     
     # Financial/Price Stats
     avg_appreciation_start_value: float = 0

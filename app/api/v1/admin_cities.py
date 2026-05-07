@@ -17,6 +17,7 @@ _ALLOWED_IMAGE_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
+    "image/gif": ".gif",
 }
 
 def save_upload(file: UploadFile, sub_dir: str, filename_prefix: str = "") -> str:
@@ -52,6 +53,7 @@ async def create_city(
     data: str = Form(...), # JSON string of CityCreate
     files: List[UploadFile] = File(None),
     city_report: UploadFile = File(None),
+    city_gif: UploadFile = File(None),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """Create a new city with optional file uploads in one request."""
@@ -82,6 +84,12 @@ async def create_city(
             url = save_upload(city_report, f"cities/{city.id}/reports", "report_")
             city.city_report_pdf = url
 
+    # Handle GIF Upload
+    if city_gif and city_gif.filename:
+        if city_gif.filename.lower().endswith(".gif") or city_gif.content_type == "image/gif":
+            url = save_upload(city_gif, f"cities/{city.id}", "animation_")
+            city.city_gif = url
+
     await city.insert()
     return city
 
@@ -103,6 +111,7 @@ async def update_city(
     data: str = Form(...), # JSON string of CityUpdate
     files: List[UploadFile] = File(None),
     city_report: UploadFile = File(None),
+    city_gif: UploadFile = File(None),
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """Update city details and handle file additions/replacements."""
@@ -142,6 +151,12 @@ async def update_city(
         if city_report.filename.lower().endswith(".pdf"):
             url = save_upload(city_report, f"cities/{city.id}/reports", "report_")
             city.city_report_pdf = url
+
+    # Handle New GIF Upload
+    if city_gif and city_gif.filename:
+        if city_gif.filename.lower().endswith(".gif") or city_gif.content_type == "image/gif":
+            url = save_upload(city_gif, f"cities/{city.id}", "animation_")
+            city.city_gif = url
 
     city.updated_at = datetime.utcnow()
     await city.save()

@@ -82,6 +82,7 @@ class CityBase(BaseModel):
     longitude: Optional[float] = None
     images: List[str] = []
     city_report_pdf: Optional[str] = None
+    city_gif: Optional[str] = None
     
     # Financial/Price Stats
     avg_appreciation_start_value: float = 0
@@ -140,6 +141,7 @@ class CityUpdate(BaseModel):
     longitude: Optional[float] = None
     images: Optional[List[str]] = None
     city_report_pdf: Optional[str] = None
+    city_gif: Optional[str] = None
     
     avg_appreciation_start_value: Optional[float] = None
     avg_appreciation_end_value: Optional[float] = None
@@ -194,6 +196,7 @@ class CityPublicDetailsResponse(CityBase):
     # Intelligence Data (Merged from MarketIntelligence)
     investment_landmarks: List[Any] = []
     map_landmarks: List[Any] = []
+    city_gif: Optional[str] = None
     
     # Hide the raw ID list in the public details API
     landmarks_id_list: Optional[List[UUID]] = Field(None, exclude=True)
