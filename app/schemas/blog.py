@@ -11,10 +11,14 @@ class BlogTheme(BaseModel):
 
 class BlogCreate(BaseModel):
     title: str
+    title_kn: Optional[str] = None
     slug: str
     subtitle: Optional[str] = None
+    subtitle_kn: Optional[str] = None
     description: str
+    description_kn: Optional[str] = None
     content: Optional[str] = None
+    content_kn: Optional[str] = None
     category: str
     tag: Optional[str] = None
     tags: list[str] = Field(default_factory=list)
@@ -31,10 +35,14 @@ class BlogCreate(BaseModel):
 
 class BlogUpdate(BaseModel):
     title: Optional[str] = None
+    title_kn: Optional[str] = None
     slug: Optional[str] = None
     subtitle: Optional[str] = None
+    subtitle_kn: Optional[str] = None
     description: Optional[str] = None
+    description_kn: Optional[str] = None
     content: Optional[str] = None
+    content_kn: Optional[str] = None
     category: Optional[str] = None
     tag: Optional[str] = None
     tags: Optional[list[str]] = None
@@ -53,8 +61,11 @@ class BlogResponse(BaseModel):
     id: UUID
     slug: str
     title: str
+    title_kn: Optional[str] = None
     subtitle: Optional[str] = None
+    subtitle_kn: Optional[str] = None
     description: str
+    description_kn: Optional[str] = None
     category: str
     tag: Optional[str] = None
     tags: list[str] = Field(default_factory=list)
@@ -70,9 +81,9 @@ class BlogResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
 class BlogDetailResponse(BlogResponse):
     content: Optional[str] = None
+    content_kn: Optional[str] = None
 
 
 # --- Public Facing API Schemas (Matching USER requested structure) ---
@@ -93,7 +104,9 @@ class PublicBlogListItem(BaseModel):
     id: str
     slug: str
     title: str
+    title_kn: Optional[str] = None
     desc: str
+    desc_kn: Optional[str] = None
     tags: list[str]
     date: str
     image: Optional[str] = None
@@ -103,8 +116,11 @@ class PublicBlogDetail(BaseModel):
     id: str
     slug: str
     title: str
+    title_kn: Optional[str] = None
     subtitle: Optional[str] = None
+    subtitle_kn: Optional[str] = None
     content_html: Optional[str] = None
+    content_html_kn: Optional[str] = None
     tags: list[str]
     date: str
     image: Optional[str] = None

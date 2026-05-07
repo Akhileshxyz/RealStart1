@@ -15,9 +15,13 @@ class Blog(Document):
     slug: str
 
     title: str
+    title_kn: Optional[str] = None
     subtitle: Optional[str] = None
+    subtitle_kn: Optional[str] = None
     description: str  # Short excerpt / card summary
+    description_kn: Optional[str] = None
     content: Optional[str] = None  # Full HTML/MD body (for detail page)
+    content_kn: Optional[str] = None
 
     category: str  # e.g. "Commercial", "Residential", "Market Trends"
     tag: Optional[str] = None  # e.g. "Trending", "New", "Featured"
