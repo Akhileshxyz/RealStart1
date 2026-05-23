@@ -16,6 +16,9 @@ redis==5.0.1
 hiredis==2.3.2
 slowapi==0.1.9
 
+# Google OAuth
+google-auth==2.38.0
+
 # Payment gateway
 razorpay==1.4.2
 

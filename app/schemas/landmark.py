@@ -137,6 +137,7 @@ class LandmarkBase(BaseModel):
     residential_rent_2bhk: Any = ""
     rental_yield: Any = ""
     risk_profile: RiskProfile = RiskProfile.MODERATE
+    landmark_score: Optional[float] = None
     rental_strength: Optional[str] = None
     future_growth: Optional[str] = None
     family_living: Optional[str] = None
@@ -199,6 +200,7 @@ class LandmarkUpdate(BaseModel):
     residential_rent_2bhk: Optional[str] = None
     rental_yield: Optional[str] = None
     risk_profile: Optional[RiskProfile] = None
+    landmark_score: Optional[float] = None
     rental_strength: Optional[str] = None
     future_growth: Optional[str] = None
     family_living: Optional[str] = None

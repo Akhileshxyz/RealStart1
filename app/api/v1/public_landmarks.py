@@ -33,6 +33,7 @@ class LandmarkPublicResponse(BaseModel):
     price_trend: Optional[str] = None
     price_trend_3m: Optional[str] = None
     risk_profile: str = "moderate"
+    landmark_score: Optional[float] = None
     rental_strength: Optional[str] = None
     future_growth: Optional[str] = None
     family_living: Optional[str] = None
@@ -215,6 +216,7 @@ async def list_public_landmarks(
                 latitude=lm.latitude,
                 longitude=lm.longitude,
                 location=lm.location.model_dump() if (lm.location and hasattr(lm.location, "model_dump")) else (lm.location if isinstance(lm.location, dict) else None),
+                landmark_score=lm.landmark_score,
                 rental_strength=lm.rental_strength,
                 future_growth=lm.future_growth,
                 family_living=lm.family_living,
@@ -290,6 +292,7 @@ async def get_landmark_comparison(base_id: UUID, target_id: UUID) -> Any:
             latitude=lm.latitude,
             longitude=lm.longitude,
             location=lm.location.model_dump() if lm.location else None,
+            landmark_score=lm.landmark_score,
             rental_strength=lm.rental_strength,
             future_growth=lm.future_growth,
             family_living=lm.family_living,
@@ -379,6 +382,7 @@ async def get_public_landmark(landmark_id: UUID) -> Any:
         latitude=landmark.latitude,
         longitude=landmark.longitude,
         location=landmark.location.model_dump() if (landmark.location and hasattr(landmark.location, "model_dump")) else (landmark.location if isinstance(landmark.location, dict) else None),
+        landmark_score=landmark.landmark_score,
         rental_strength=landmark.rental_strength,
         future_growth=landmark.future_growth,
         family_living=landmark.family_living,

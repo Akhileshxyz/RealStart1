@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -11,10 +11,13 @@ from app.models.developer import Developer
 from app.models.lead import ProjectLead
 from app.core.redis_client import redis_client
 from fastapi.security import HTTPAuthorizationCredentials
-from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse, Message
+from app.schemas.auth import Token, TokenWithUser, UserCreate, UserResponse, Message, GoogleLoginRequest
 from app.schemas.developer import DeveloperCreate, DeveloperResponse
+from app.core.config import settings
 from datetime import datetime
 from app.utils.cache_invalidation import invalidate_user_cache
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -47,6 +50,79 @@ async def register_public_user(user_in: UserCreate) -> Any:
     )
     await user.insert()
     return user
+
+@router.post("/google", response_model=TokenWithUser)
+async def google_login(google_in: GoogleLoginRequest) -> Any:
+    """
+    Authenticate with Google Sign-In ID token.
+    Verifies the token, finds or creates a user, returns a JWT.
+    """
+    try:
+        info = id_token.verify_oauth2_token(
+            google_in.id_token,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google token: {str(e)}"
+        )
+
+    email = info.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account has no email associated"
+        )
+
+    name = info.get("name", email.split("@")[0])
+    google_sub = info.get("sub")
+    picture = info.get("picture")
+
+    user = await User.find_one({"email": email})
+
+    if user:
+        if user.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account has been deleted. Please contact support."
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive"
+            )
+    else:
+        user = User(
+            email=email,
+            hashed_password=security.get_password_hash(f"google_{google_sub}_{datetime.utcnow().timestamp()}"),
+            full_name=name,
+            role=UserRole.BUYER,
+            is_active=True,
+            photo_url=picture,
+        )
+        await user.insert()
+
+    leads = await ProjectLead.find(
+        ProjectLead.user_id == user.id,
+        ProjectLead.is_wishlisted == True
+    ).to_list()
+    
+    saved_properties = [lead.project_id for lead in leads]
+
+    return {
+        "access_token": security.create_access_token(user.id),
+        "token_type": "bearer",
+        "user": UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active,
+            saved_properties=saved_properties
+        )
+    }
 
 @router.post("/login", response_model=TokenWithUser)
 @limiter.limit("5/minute")

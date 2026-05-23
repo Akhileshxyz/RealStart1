@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+
     # Mappls (MapmyIndia)
     MAPPLS_CLIENT_ID: str = ""
     MAPPLS_CLIENT_SECRET: str = ""

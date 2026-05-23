@@ -106,6 +106,9 @@ class Landmark(Document):
     rental_yield: str = "" # e.g. "4.5%"
     risk_profile: RiskProfile = RiskProfile.MODERATE
     
+    # Growth Score (0-10 numeric rating)
+    landmark_score: Optional[float] = None
+    
     # Area Ratings
     rental_strength: Optional[str] = None
     future_growth: Optional[str] = None

@@ -61,6 +61,8 @@ class CityStats(BaseModel):
 class FeaturedCityResponse(BaseModel):
     id: UUID
     name: str
+    name_kn: Optional[str] = None
+    slug: Optional[str] = None
     image: Optional[str] = None
     rental_yield: Optional[str] = "" 
     upcoming_projects_list: Optional[List[str]] = []
@@ -188,6 +190,8 @@ async def list_featured_cities(
         FeaturedCityResponse(
             id=city.id,
             name=city.name,
+            name_kn=city.name_kn,
+            slug=city.slug,
             image=city.images[0] if city.images else None,
             appreciation_potential_5yr=city.appreciation_potential_5yr,
             avg_appreciation_end_value=city.avg_appreciation_end_value,

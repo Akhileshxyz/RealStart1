@@ -104,5 +104,8 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
         return v
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
 class Message(BaseModel):
     message: str
