@@ -121,7 +121,7 @@ async def _get_nearby_landmarks(landmark_ids: List[UUID]) -> List[Dict[str, Any]
 async def list_public_landmarks(
     city_id: Optional[UUID] = Query(None, description="Filter by city ID"),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=1000),
 ) -> Any:
     """
     List all landmarks for public access.
