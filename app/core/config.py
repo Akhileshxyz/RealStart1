@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # 2Factor OTP
+    FACTOR_API_KEY: str = ""
+    FACTOR_BASE_URL: str = "https://2factor.in/API/V1"
+
     # Mappls (MapmyIndia)
     MAPPLS_CLIENT_ID: str = ""
     MAPPLS_CLIENT_SECRET: str = ""

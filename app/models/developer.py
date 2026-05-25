@@ -17,6 +17,7 @@ class Developer(Document):
     contact_phone: Optional[str] = None
     logo_url: Optional[str] = None
     about_text: Optional[str] = None
+    tenure: Optional[str] = None
     is_verified: bool = False
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)

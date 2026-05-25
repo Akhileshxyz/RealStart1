@@ -15,16 +15,25 @@ router = APIRouter()
 @router.get("/", response_model=List[ProjectResponse])
 async def list_all_projects_admin(
     status: ProjectStatus = None,
+    developer_id: UUID = None,
     skip: int = 0,
     limit: int = 50,
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
-    List all projects. Filter by status.
+    List all projects. Filter by status and/or developer.
     """
     import traceback
     try:
         query = {"is_active": {"$ne": False}}
+        if developer_id:
+            # Developer ID from admin panel is the Developer model UUID.
+            # Project.developer_id stores the User UUID. Find the User by developer_id.
+            user = await User.find_one(User.developer_id == developer_id)
+            if user:
+                query["developer_id"] = user.id
+            else:
+                query["developer_id"] = developer_id  # fallback
         if status:
             if status == ProjectStatus.DELETED:
                 query = {"status": ProjectStatus.DELETED}

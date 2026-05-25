@@ -33,6 +33,7 @@ class DeveloperUpdate(BaseModel):
     contact_phone: Optional[str] = None
     logo_url: Optional[str] = None
     about_text: Optional[str] = None
+    tenure: Optional[str] = None
     is_verified: Optional[bool] = None
     is_active: Optional[bool] = None
 

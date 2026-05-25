@@ -1,4 +1,5 @@
 from typing import Any, List, Dict, Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from app.api import deps
 from app.models.user import User, UserRole
@@ -173,6 +174,7 @@ async def list_developer_subscriptions(
         
         results.append(DetailedSubscriptionResponse(
             id=sub.id,
+            developer_id=user.developer_id if user else None,
             developer_name=developer.name if developer else "Unknown Developer",
             developer_email=user.email if user else None,
             plan_name=plan.name if plan else "Unknown Plan",
@@ -194,6 +196,117 @@ async def list_developer_subscriptions(
         "limit": limit,
         "data": results
     }
+
+@router.get("/by-developer/{developer_id}", response_model=Optional[DetailedSubscriptionResponse])
+async def get_developer_subscription(
+    developer_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get the active subscription for a developer by developer UUID.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    user = await User.find_one(User.developer_id == developer_id)
+    if not user:
+        return None
+
+    sub = await DeveloperSubscription.find_one(
+        DeveloperSubscription.developer_id == user.id,
+        DeveloperSubscription.status == SubscriptionStatus.ACTIVE,
+    )
+    if not sub:
+        return None
+
+    developer = await Developer.get(developer_id)
+    plan = await SubscriptionPlan.get(sub.plan_id)
+
+    now = datetime.now(timezone.utc)
+    end_date_aware = sub.end_date.replace(tzinfo=timezone.utc) if sub.end_date.tzinfo is None else sub.end_date
+    days_left = (end_date_aware - now).days
+
+    return DetailedSubscriptionResponse(
+        id=sub.id,
+        developer_id=developer_id,
+        developer_name=developer.name if developer else "Unknown",
+        developer_email=user.email if user else None,
+        plan_name=plan.name if plan else "Unknown Plan",
+        plan_price=plan.price if plan else 0.0,
+        start_date=sub.start_date,
+        end_date=sub.end_date,
+        days_left=max(0, days_left),
+        status=sub.status,
+        auto_renewal=sub.auto_renewal,
+        created_at=sub.created_at,
+    )
+
+
+@router.put("/change-plan", response_model=SubscriptionResponse)
+async def change_subscription_plan(
+    developer_id: UUID = Body(...),
+    new_plan_id: UUID = Body(...),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Admin: Change/upgrade a developer's subscription plan by developer UUID.
+    Finds the User linked to this Developer, then creates or updates the subscription.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Find the User linked to this Developer, or create one
+    developer = await Developer.get(developer_id)
+    if not developer:
+        raise HTTPException(status_code=404, detail="Developer not found")
+
+    user = await User.find_one(User.developer_id == developer_id)
+    if not user:
+        user = User(
+            email=developer.contact_email or f"{developer_id}@placeholder.dev",
+            hashed_password="",
+            full_name=developer.name or "Developer",
+            role=UserRole.DEVELOPER,
+            developer_id=developer_id,
+            is_active=True,
+        )
+        await user.insert()
+
+    plan = await SubscriptionPlan.get(new_plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    if not plan.is_active:
+        raise HTTPException(status_code=400, detail="Selected plan is not active")
+
+    now = datetime.now(timezone.utc)
+    end_date = now + timedelta(days=plan.duration_days)
+
+    # Find existing active subscription or create new one
+    sub = await DeveloperSubscription.find_one(
+        DeveloperSubscription.developer_id == user.id,
+        DeveloperSubscription.status == SubscriptionStatus.ACTIVE,
+    )
+
+    if sub:
+        sub.plan_id = new_plan_id
+        sub.start_date = now
+        sub.end_date = end_date
+        sub.updated_at = now
+    else:
+        sub = DeveloperSubscription(
+            developer_id=user.id,
+            plan_id=new_plan_id,
+            start_date=now,
+            end_date=end_date,
+            status=SubscriptionStatus.ACTIVE,
+        )
+
+    await sub.save()
+
+    resp = SubscriptionResponse.model_validate(sub)
+    resp.plan_name = plan.name
+    return resp
+
 
 # --- Enhanced Admin APIs ---
 

@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api import deps
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.developer import Developer
 from app.models.project import Project
 from app.models.landmark import Landmark
@@ -42,8 +42,7 @@ async def read_developers(
     now = datetime.now(timezone.utc)
     for dev in developers:
         resp = DeveloperResponse.model_validate(dev)
-        if dev.created_at:
-            # Simple approximation
+        if not dev.tenure and dev.created_at:
             delta = now - dev.created_at.replace(tzinfo=timezone.utc)
             years = delta.days // 365
             months = (delta.days % 365) // 30
@@ -63,7 +62,18 @@ async def read_developer(
     developer = await Developer.get(developer_id)
     if not developer:
         raise HTTPException(status_code=404, detail="Developer not found")
-    return developer
+
+    resp = DeveloperResponse.model_validate(developer)
+
+    # Compute tenure from created_at if not explicitly set
+    if not developer.tenure and developer.created_at:
+        now = datetime.now(timezone.utc)
+        delta = now - developer.created_at.replace(tzinfo=timezone.utc)
+        years = delta.days // 365
+        months = (delta.days % 365) // 30
+        resp.tenure = f"{years} years, {months} months"
+
+    return resp
 
 @router.put("/{developer_id}", response_model=DeveloperResponse)
 async def update_developer(
@@ -82,6 +92,9 @@ async def update_developer(
     update_data["updated_at"] = datetime.now(timezone.utc)
     
     await developer.set(update_data)
+    
+    # Refresh from DB to get updated in-memory values
+    developer = await Developer.get(developer_id)
     return developer
 
 @router.delete("/{developer_id}", response_model=DeveloperResponse)
@@ -148,11 +161,18 @@ async def impersonate_developer(
     if not developer:
         raise HTTPException(status_code=404, detail="Developer not found")
         
-    # Find the User entity for this developer
-    # Assuming Developer model links to User or we search User by role and developer_id
-    user = await User.find_one({"email": developer.email}) # Best guess link
+    # Find the User entity via developer_id link, or create one
+    user = await User.find_one(User.developer_id == developer_id)
     if not user:
-         raise HTTPException(status_code=404, detail="User account for developer not found")
+        user = User(
+            email=developer.contact_email or f"{developer_id}@placeholder.dev",
+            hashed_password="",
+            full_name=developer.name or "Developer",
+            role=UserRole.DEVELOPER,
+            developer_id=developer_id,
+            is_active=True,
+        )
+        await user.insert()
 
     access_token_expires = timedelta(minutes=60)
     access_token = create_access_token(

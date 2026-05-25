@@ -64,6 +64,7 @@ class SubscriptionStatsResponse(BaseModel):
 # Detailed Subscription Info for Admin
 class DetailedSubscriptionResponse(BaseModel):
     id: UUID
+    developer_id: Optional[UUID] = None
     developer_name: str
     developer_email: Optional[str] = None
     plan_name: str

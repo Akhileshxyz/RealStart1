@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.db.mongodb import init_db
 from app.api.v1 import (
     public_auth,
+    otp_auth,
     admin_auth,
     developers,
     users,
@@ -168,6 +169,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(public_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
+app.include_router(otp_auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
 app.include_router(public_projects.router, prefix=f"{settings.API_V1_STR}/public/projects", tags=["Public Projects"])
 app.include_router(public_blogs.router, prefix=f"{settings.API_V1_STR}/public/blogs", tags=["Public Blogs"])
 app.include_router(public_landmarks.router, prefix=f"{settings.API_V1_STR}/public/landmarks", tags=["Public - Landmarks"])
