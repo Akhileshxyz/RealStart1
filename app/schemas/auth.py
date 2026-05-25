@@ -64,12 +64,33 @@ class PasswordChange(BaseModel):
             raise ValueError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
         return v
 
+class CompleteProfileRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one number')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
+        return v
+
 class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     full_name: str
     role: UserRole
     is_active: bool
+    is_profile_complete: bool = True
     saved_properties: List[UUID] = []
 
     class Config:

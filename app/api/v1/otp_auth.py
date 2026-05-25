@@ -1,11 +1,12 @@
 from typing import Any
 from uuid import uuid4
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
+from app.api import deps
 from app.core import security
 from app.core.redis_client import redis_client
 from app.models.user import User, UserRole
-from app.schemas.auth import TokenWithUser, UserResponse
+from app.schemas.auth import TokenWithUser, UserResponse, CompleteProfileRequest
 from app.services.otp_service import send_otp, verify_otp
 import re
 
@@ -24,6 +25,7 @@ class SendOTPRequest(BaseModel):
 
 class VerifyOTPRequest(BaseModel):
     phone: str
+    session_id: str
     otp: str
 
     @field_validator("phone")
@@ -57,20 +59,13 @@ async def send_otp_endpoint(req: SendOTPRequest) -> Any:
 
     await redis_client.set(f"otp_session:{phone}", session_id, ttl=300)
 
-    return {"message": "OTP sent successfully", "session_id": session_id[:6] + "..."}
+    return {"message": "OTP sent successfully", "session_id": session_id}
 
 @router.post("/verify-otp", response_model=TokenWithUser)
 async def verify_otp_endpoint(req: VerifyOTPRequest) -> Any:
     phone = normalize_phone(req.phone)
 
-    stored = await redis_client.get(f"otp_session:{phone}")
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No OTP sent to this number or session expired"
-        )
-
-    is_valid = await verify_otp(stored, req.otp)
+    is_valid = await verify_otp(req.session_id, req.otp)
     if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -92,8 +87,6 @@ async def verify_otp_endpoint(req: VerifyOTPRequest) -> Any:
         )
         await user.insert()
 
-    await redis_client.delete(f"otp_session:{phone}")
-
     from app.models.lead import ProjectLead
     leads = await ProjectLead.find(
         ProjectLead.user_id == user.id,
@@ -101,6 +94,7 @@ async def verify_otp_endpoint(req: VerifyOTPRequest) -> Any:
     ).to_list()
 
     saved_properties = [lead.project_id for lead in leads]
+    is_complete = not user.email.endswith("@otp.realstart.app")
 
     return {
         "access_token": security.create_access_token(user.id),
@@ -111,6 +105,47 @@ async def verify_otp_endpoint(req: VerifyOTPRequest) -> Any:
             full_name=user.full_name,
             role=user.role,
             is_active=user.is_active,
+            is_profile_complete=is_complete,
+            saved_properties=saved_properties
+        )
+    }
+
+
+@router.post("/complete-profile", response_model=TokenWithUser)
+async def complete_profile(
+    req: CompleteProfileRequest,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    if not current_user.email.endswith("@otp.realstart.app"):
+        raise HTTPException(status_code=400, detail="Profile is already complete")
+
+    existing = await User.find_one({"email": req.email})
+    if existing and existing.id != current_user.id:
+        raise HTTPException(status_code=400, detail="Email already in use")
+
+    current_user.full_name = req.full_name
+    current_user.email = req.email
+    current_user.hashed_password = security.get_password_hash(req.password)
+    await current_user.save()
+
+    from app.models.lead import ProjectLead
+    leads = await ProjectLead.find(
+        ProjectLead.user_id == current_user.id,
+        ProjectLead.is_wishlisted == True
+    ).to_list()
+
+    saved_properties = [lead.project_id for lead in leads]
+
+    return {
+        "access_token": security.create_access_token(current_user.id),
+        "token_type": "bearer",
+        "user": UserResponse(
+            id=current_user.id,
+            email=current_user.email,
+            full_name=current_user.full_name,
+            role=current_user.role,
+            is_active=current_user.is_active,
+            is_profile_complete=True,
             saved_properties=saved_properties
         )
     }
