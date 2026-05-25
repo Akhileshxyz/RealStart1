@@ -4,13 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.developer import Developer
+from app.models.project import Project, ProjectStatus
 from app.models.subscription import SubscriptionPlan, DeveloperSubscription, SubscriptionStatus
 from app.schemas.subscription import (
     SubscriptionPlanCreate, 
     SubscriptionPlanResponse, 
     SubscriptionResponse,
     SubscriptionStatsResponse,
-    DetailedSubscriptionResponse
+    DetailedSubscriptionResponse,
+    ProjectUsageResponse
 )
 from datetime import datetime, timedelta, timezone
 
@@ -83,8 +85,7 @@ async def delete_plan(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Delete (deactivate) a subscription plan.
-    This sets is_active to False instead of actually deleting the plan.
+    Permanently delete a subscription plan (if no active subscriptions use it).
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -112,11 +113,10 @@ async def delete_plan(
             detail=f"Cannot delete plan. {active_subs_count} active subscription(s) are using this plan."
         )
     
-    # Soft delete by setting is_active to False
-    plan.is_active = False
-    await plan.save()
+    # Hard delete the plan
+    await plan.delete()
     
-    return {"message": "Plan deactivated successfully", "plan_id": str(plan_id)}
+    return {"message": "Plan permanently deleted", "plan_id": str(plan_id)}
 
 @router.get("/subscriptions")
 async def list_developer_subscriptions(
@@ -155,6 +155,7 @@ async def list_developer_subscriptions(
     plan_map = {p.id: p for p in plans}
     
     # Build detailed response
+    from app.services.subscription_service import SubscriptionService
     now = datetime.now(timezone.utc)
     results = []
     
@@ -171,6 +172,17 @@ async def list_developer_subscriptions(
         # Calculate days left
         end_date_aware = sub.end_date.replace(tzinfo=timezone.utc) if sub.end_date.tzinfo is None else sub.end_date
         days_left = (end_date_aware - now).days
+
+        projects_used = 0
+        projects_limit = 0
+        if user:
+            limits = await SubscriptionService.get_current_limits(user.id)
+            projects_limit = limits.get("max_projects", 1)
+            projects_used = await Project.find(
+                Project.developer_id == user.id,
+                Project.status != ProjectStatus.DELETED,
+                Project.status != ProjectStatus.REJECTED
+            ).count()
         
         results.append(DetailedSubscriptionResponse(
             id=sub.id,
@@ -184,7 +196,9 @@ async def list_developer_subscriptions(
             days_left=max(0, days_left) if sub.status == SubscriptionStatus.ACTIVE else 0,
             status=sub.status,
             auto_renewal=sub.auto_renewal,
-            created_at=sub.created_at
+            created_at=sub.created_at,
+            projects_used=projects_used,
+            projects_limit=projects_limit,
         ))
     
     # Sort by end_date (most recent first)
@@ -226,6 +240,15 @@ async def get_developer_subscription(
     end_date_aware = sub.end_date.replace(tzinfo=timezone.utc) if sub.end_date.tzinfo is None else sub.end_date
     days_left = (end_date_aware - now).days
 
+    from app.services.subscription_service import SubscriptionService
+    limits = await SubscriptionService.get_current_limits(user.id)
+    projects_limit = limits.get("max_projects", 1)
+    projects_used = await Project.find(
+        Project.developer_id == user.id,
+        Project.status != ProjectStatus.DELETED,
+        Project.status != ProjectStatus.REJECTED
+    ).count()
+
     return DetailedSubscriptionResponse(
         id=sub.id,
         developer_id=developer_id,
@@ -239,6 +262,8 @@ async def get_developer_subscription(
         status=sub.status,
         auto_renewal=sub.auto_renewal,
         created_at=sub.created_at,
+        projects_used=projects_used,
+        projects_limit=projects_limit,
     )
 
 
@@ -376,6 +401,58 @@ async def get_subscription_stats(
         total_revenue=total_revenue,
         total_subscriptions=len(all_subs)
     )
+
+@router.get("/project-usage/{developer_id}", response_model=ProjectUsageResponse)
+async def get_developer_project_usage(
+    developer_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get project usage stats for a developer by developer UUID.
+    Returns projects_used, projects_limit, and whether they can create more.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    developer = await Developer.get(developer_id)
+    if not developer:
+        raise HTTPException(status_code=404, detail="Developer not found")
+
+    user = await User.find_one(User.developer_id == developer_id)
+    if not user:
+        return ProjectUsageResponse(
+            developer_id=developer_id,
+            developer_name=developer.name or "Unknown",
+            projects_used=0,
+            projects_limit=0,
+            plan_name="No Plan",
+            can_create_more=False
+        )
+
+    from app.services.subscription_service import SubscriptionService
+    limits = await SubscriptionService.get_current_limits(user.id)
+    projects_limit = limits.get("max_projects", 1)
+    projects_used = await Project.find(
+        Project.developer_id == user.id,
+        Project.status != ProjectStatus.DELETED,
+        Project.status != ProjectStatus.REJECTED
+    ).count()
+
+    sub = await SubscriptionService.get_active_subscription(user.id)
+    plan_name = "Free Tier"
+    plan = await SubscriptionPlan.get(sub.plan_id) if sub else None
+    if plan:
+        plan_name = plan.name
+
+    return ProjectUsageResponse(
+        developer_id=developer_id,
+        developer_name=developer.name or "Unknown",
+        projects_used=projects_used,
+        projects_limit=projects_limit,
+        plan_name=plan_name,
+        can_create_more=projects_used < projects_limit
+    )
+
 
 @router.post("/send-renewal-reminders")
 async def send_renewal_reminders(

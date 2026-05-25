@@ -73,8 +73,19 @@ class DetailedSubscriptionResponse(BaseModel):
     end_date: datetime
     days_left: int
     status: SubscriptionStatus
-    auto_renewal: bool = False  # Can be added to model later
+    auto_renewal: bool = False
     created_at: datetime
-    
+    projects_used: int = 0
+    projects_limit: int = 0
+
     class Config:
         from_attributes = True
+
+
+class ProjectUsageResponse(BaseModel):
+    developer_id: UUID
+    developer_name: str
+    projects_used: int
+    projects_limit: int
+    plan_name: str
+    can_create_more: bool

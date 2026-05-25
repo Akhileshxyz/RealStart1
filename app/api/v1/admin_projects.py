@@ -254,6 +254,63 @@ async def get_projects_selection_list(
     
     return await Project.find(query).project(ProjectSelection).to_list()
     
+@router.patch("/{project_id}/toggle-hidden", response_model=ProjectResponse)
+async def toggle_hidden_project(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Toggle the `is_hidden` flag on a project.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.is_hidden = not project.is_hidden
+    await project.save()
+
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+
+    return project
+
+@router.patch("/{project_id}/restore", response_model=ProjectResponse)
+async def restore_project_admin(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Restore a soft-deleted project. Sets is_active=True and status to PENDING.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.is_active = True
+    project.status = ProjectStatus.PENDING
+    await project.save()
+
+    await invalidate_project_cache(project_id=project.id, slug=project.slug)
+
+    return project
+
+@router.delete("/{project_id}/hard-delete", response_model=dict)
+async def hard_delete_project_admin(
+    project_id: UUID,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Permanently delete a project from the database.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await project.delete()
+
+    await invalidate_project_cache(project_id=project_id)
+
+    return {"message": "Project permanently deleted"}
+
 @router.delete("/{project_id}", response_model=dict)
 async def delete_project_admin(
     project_id: UUID,
